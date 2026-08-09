@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-08-09（DASHSCOPE API Key 实测通过：WS 连接 + 人设注入成功）
+
+### 做了什么
+- 老板提供 DASHSCOPE_API_KEY（sk-ws- 前缀）→ 完整实测：
+  - ✅ REST 兼容模式可用（models 列表 + qwen-turbo 聊天正常）
+  - ✅ 模型列表确认 `qwen-audio-3.0-realtime-flash` 可用
+  - ✅ **WebSocket 连接成功**：`wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash`
+  - ✅ `session.created` → `session_id=sess_Tk8klzjCeubDb1FptL4DN`
+  - ✅ `session.update`（人设注入）被接受
+- API Key 已写入 `config/apikeys.json`（gitignore，不进 GitHub）；`wsUrl` 字段新增
+- module-contracts.md：§2.2 补充实测连接信息（URL/鉴权/音频格式）
+- TASKS-CONFIG.md：VS 模块补充连接实测标注
+
+### 决策
+- VS-01 依赖的 **API Key 已就绪**，M2 语音链路可开工
+- 发现正确 URL 结构：`/api-ws/v1/realtime`（非 /api/v2/audio/realtime）
+
+### 阻塞 / 下一步
+- **VS-01 Qwen-Audio WS 客户端**（依赖 ✅ 已全齐，可派）
+- **AV-02 manifest.json**（无依赖，可并行）
+
+---
+
 ## 2026-08-09（BR-02 完成：function-router.ts，M1 收官）
 
 ### 做了什么

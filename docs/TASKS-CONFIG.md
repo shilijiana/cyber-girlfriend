@@ -205,6 +205,7 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | **执行入口** | `voice-shell/qwen-audio-client.ts`、`voice-shell/gateway.ts` |
 | **输入参数** | WS 消息 `{type:'start'/'audio'/'interrupt'}`；PCM 16kHz 上行音频 |
 | **预期输出** | WS 下行 `{type:'audio'/'subtitle'/'emotion'/'brain'/'error'}`；PCM 24kHz 音频 |
+| **📌 连接实测（2026-08-09）** | WS URL `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash`，Header Bearer 鉴权，连接+session.update 已实测通过；API Key 已配置 |
 
 **任务清单**：
 

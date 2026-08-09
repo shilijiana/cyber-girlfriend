@@ -83,6 +83,16 @@ export interface VoiceProvider {
 **实现**：`qwen-audio-client.ts`（Qwen-Audio-3.0-Realtime-Flash，默认）
 **预留**：SeeduplexProvider / Qwen3OmniProvider（按 ADR-001 可替换）
 
+**连接信息（2026-08-09 实测验证 ✅）**：
+
+| 项 | 值 |
+|----|-----|
+| WS URL | `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash` |
+| 鉴权 | Header `Authorization: Bearer <DASHSCOPE_API_KEY>`（握手阶段验证） |
+| 测试结果 | ✅ 连接成功 → `session.created` → `session.update`（人设注入）被接受（2026-08-09 实测，session_id 正常返回） |
+| 业务空间域名（可选升级） | `wss://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/api-ws/v1/realtime`（需 Workspace ID，性能更优） |
+| 音频格式 | 上行 PCM 16kHz 16bit · 下行 PCM 24kHz 16bit |
+
 ### 2.3 app/server → brain（BrainRunner）
 
 ```ts
