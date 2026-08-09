@@ -291,7 +291,7 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 |----|------|--------|------|----------|
 | HM-01 | AGENTS.md 行为守则起草 | P0 | 📋 | 白名单路径/禁删规则/危险命令先说明，放后端工作目录 |
 | HM-02 | 人设角色卡 card.md 起草 | P0 | 📋 | 小呆/知心姐姐/助手三份：身份/性格/说话风格/世界观 |
-| HM-03 | 记忆维护收尾指令模板 | P1 | 📋 | 新事实追加 memory.md + 超限压缩 + 全局事实写 MEMORY.md |
+| HM-03 | 记忆维护收尾指令模板 | P1 | ✅ | 新事实追加 memory.md + 超限压缩 + 全局事实写 MEMORY.md（产出 `docs/hm-03-memory-template.md`） |
 | HM-04 | 已交付代码审查 | P1 | 📋 | BR-01/PS-02/AV-01/AP-02 审查报告：bug/边界/改进建议 |
 | HM-05 | 依赖与安全审计 | P1 | 📋 | package.json 最小化 + tsconfig 合理性 + 安全风险 |
 | HM-06 | 文档一致性检查 | P2 | 📋 | 三文档与 TASKS-CONFIG 同步性检查 |

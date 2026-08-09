@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-08-09（HM-03 完成：人设记忆维护模板，对齐 Hermes 记忆机制）
+
+### 做了什么
+- 老板指示：先问 Hermes 的记忆系统怎么维护，再按它的模式设计 HM-03
+- 查询 Hermes 记忆机制（HM-MEMORY-QUERY 实测）：三层记忆（角色 memory.md / profile MEMORY.md / 主 profile 隔离）+ 小文件全量注入 + 大容量按需检索 + 预算硬顶逼压缩
+- 产出 `docs/hm-03-memory-template.md`：收尾指令模板（新事实追加 + 20条/3KB 压缩 + 全局事实上浮）+ memory.md 格式 + 三层边界 + 写入纪律
+- TASKS.md / TASKS-CONFIG.md：HM-03 状态 → ✅
+
+### 决策
+- HM-03 模板 = Hermes 记忆机制的参数化副本（阈值 20 条/3KB 写死，不靠 LLM 自觉）
+- 三层边界：单角色 → 专用 profile MEMORY.md → 主 profile 永不触碰（红线 10）
+- 事件驱动（每轮收尾评估），非定时；切换人设不触发记忆写入
+
+### 阻塞 / 下一步
+- HM-04 代码审查 / HM-05 依赖审计 待派（可用 kanban 异步模式）
+- AGENTS.md §4 收尾指令模板可替换为 HM-03 版（落地项）
+
+---
+
 ## 2026-08-09（HM 派活升级：kanban 异步模式 + 文档即状态）
 
 ### 做了什么
