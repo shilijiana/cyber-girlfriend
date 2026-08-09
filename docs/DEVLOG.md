@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-08-09（BR-01 规格产出：hermes-runner 实现文档 + 实测验证）
+
+### 做了什么
+- 实测本机 Hermes：v0.20.0，binPath = `C:/Users/chipsine/AppData/Local/hermes/hermes-agent/.venv/Scripts/hermes`，默认模型 deepseek-v4-flash，`hermes -z "1+1=?"` → `2。` ✅
+- 产出 `brain/hermes-runner-spec.md`（BR-01 实现规格）：接口定义（BrainRunner 契约）+ 实测参数表 + 参考实现骨架（spawn/超时/输出上限/错误兜底）+ 验收自检表 + 边界红线
+- TASKS-CONFIG.md：BR-01 任务卡补充规格文档入口
+- config/apikeys.example.json：hermes.binPath 更新为实测绝对路径
+
+### 决策
+- binPath 用绝对路径（避免 PATH 差异）；`-z` 一次性任务模式为标准调用方式
+- BR-01 交付物 = 实现规格文档，新窗口子任务按文档实现 `brain/hermes-runner.ts`
+
+### 阻塞 / 下一步
+- 老板新建聊天框 → 读 `brain/hermes-runner-spec.md` + `docs/TASKS-CONFIG.md` → 实现 BR-01
+
+---
+
 ## 2026-08-09（产出可复用任务架构模板）
 
 ### 做了什么

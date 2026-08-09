@@ -6,7 +6,7 @@
     "model": "qwen-audio-3.0-realtime-flash"
   },
   "hermes": {
-    "binPath": "hermes",
+    "binPath": "C:/Users/chipsine/AppData/Local/hermes/hermes-agent/.venv/Scripts/hermes",
     "modelProvider": "deepseek",
     "apiKey": "",
     "baseUrl": ""

@@ -196,6 +196,8 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | BR-03 | Hermes 可用性探测 | P1 | 📋 | BR-01 | `/api/brain/status` 返回版本与可用性 |
 | BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时友好提示；Hermes 不可用降级纯 Qwen |
 
+> 📌 **BR-01 实现规格**：`brain/hermes-runner-spec.md`（接口定义 + 实测 Hermes 参数 + 参考骨架 + 验收自检表，实测 `hermes -z "1+1=?"` → `2。`）
+
 ---
 
 ### 模块 VS · voice-shell 语音壳
