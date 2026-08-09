@@ -42,7 +42,7 @@
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | ✅ 完成 | **VS-01~06 ✅ + AP-05 ✅ + AP-06 ✅** —— 语音链路全通（/ws/voice 真实 Qwen 连接实测通过） |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | ✅ 完成 | AV-01~04 ✅ + CL-01/02 ✅（画布 + useAvatar + 素材 + 匹配引擎全通） |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 🔄 进行中 | CL-06（useVoice）+ CL-08（audio.ts）✅；CL-03/04/05/07/09 待开工 |
-| **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成 |
+| **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成（含 CC-01/02 代码审查 + 依赖审计，老板定最后做） |
 
 ---
 
@@ -158,11 +158,12 @@ config → app → persona → brain → voice-shell → avatar → client
 > **模块说明**：CC = Claude Code 作为独立执行者承接的**深度分析类任务**（代码审查/依赖审计），老板 2026-08-09 明确：这类任务非 Hermes 长处，由 Claude Code 执行。
 > **执行方式**：老板把任务文档（`docs/tasks/CC-XX-*.md`）交给 Claude Code，它直接按文档执行（自包含，无需翻阅其他文档）。
 > **任务文档**：`docs/tasks/CC-01-code-review.md`（代码审查）、`docs/tasks/CC-02-dependency-audit.md`（依赖审计）
+> **⏰ 执行时机**：老板 2026-08-09 拍板——**最后再做**（M5 联调收尾阶段执行，此时代码量完整、审查价值最大化）
 
 | ID | 任务 | 优先级 | 状态 | 验收标准 | 任务文档 |
 |----|------|--------|------|----------|----------|
-| CC-01 | 已交付代码审查 | P1 | 📋 | 审查 BR-01/PS-02/AV-01/AP-02/AP-03 代码，输出审查报告（bug/边界/安全/规范/建议） | `docs/tasks/CC-01-code-review.md` |
-| CC-02 | 依赖与安全审计 | P1 | 📋 | 审查 package.json 最小化 + tsconfig + npm audit 漏洞 + 建议，输出审计报告 | `docs/tasks/CC-02-dependency-audit.md` |
+| CC-01 | 已交付代码审查 | P1 | ⏸ 延后 | 审查 BR-01/PS-02/AV-01/AP-02/AP-03 代码，输出审查报告（bug/边界/安全/规范/建议）（M5 阶段执行） | `docs/tasks/CC-01-code-review.md` |
+| CC-02 | 依赖与安全审计 | P1 | ⏸ 延后 | 审查 package.json 最小化 + tsconfig + npm audit 漏洞 + 建议，输出审计报告（M5 阶段执行） | `docs/tasks/CC-02-dependency-audit.md` |
 
 ---
 

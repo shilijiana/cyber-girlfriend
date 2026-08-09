@@ -310,13 +310,14 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | **执行入口** | 老板把任务文档交给 Claude Code（`docs/tasks/CC-XX-*.md`，自包含可直接执行） |
 | **任务文档** | `docs/tasks/CC-01-code-review.md`（代码审查）、`docs/tasks/CC-02-dependency-audit.md`（依赖审计） |
 | **职责边界** | 深度分析（审查/审计），只诊断不改码；产出报告到 `docs/reviews/` |
+| **⏰ 执行时机** | 老板 2026-08-09 拍板：**最后再做**（M5 联调收尾阶段执行，代码量完整时审查价值最大化） |
 
 **任务清单**：
 
 | ID | 任务 | 优先级 | 状态 | 验收标准 |
 |----|------|--------|------|----------|
-| CC-01 | 已交付代码审查 | P1 | 📋 | 覆盖 8 个核心文件，报告含分级问题+合规检查，输出 `docs/reviews/code-review-2026-08-09.md` |
-| CC-02 | 依赖与安全审计 | P1 | 📋 | 依赖清单分析 + npm audit + 配置/密钥检查，输出 `docs/reviews/dependency-audit-2026-08-09.md` |
+| CC-01 | 已交付代码审查 | P1 | ⏸ 延后 | 覆盖 8 个核心文件，报告含分级问题+合规检查，输出 `docs/reviews/code-review-2026-08-09.md`（M5 阶段执行） |
+| CC-02 | 依赖与安全审计 | P1 | ⏸ 延后 | 依赖清单分析 + npm audit + 配置/密钥检查，输出 `docs/reviews/dependency-audit-2026-08-09.md`（M5 阶段执行） |
 
 ---
 
