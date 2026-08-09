@@ -9,7 +9,7 @@
 - **简短描述**：**纯交互界面** Web 应用：云端 **Qwen-Audio-3.0-Realtime-Flash** 当"嘴和耳朵"（语音交互 + 人设快问快答），本地 **Hermes agent** 当"大脑"（具体事务执行 + 记忆，50+ 工具），中间用文本衔接（Function Calling 中转）。配套 **数字人素材库可视化**（情绪匹配引擎，运行时零 GPU）。**无记忆系统、无数据库**——记忆与事务全部归 Hermes 负责（老板 2026-08-09 明确）。
 - **架构总纲**：`docs/architecture/overall-architecture.md`（v1.1，任务模块目录：voice-shell/brain/persona/avatar + app/client + docs/assets/scripts/tests）
 - **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成，剩余决策（路径 A/B、Hermes 后端模型、人设内容）待老板拍板后开工。
-- **🚫 环境搭建永久暂停（老板 2026-08-09 明确指示）**：环境搭建**不是本项目负责的事情**，本任务**永久暂停环境搭建**——不再执行 npm/pnpm install、Python 依赖安装、素材下载（fetch-avatars.sh）、工具链配置等任何环境类操作，也无需再评估/维护依赖方案（DESIGN §16、DEPENDENCIES.md 相关内容仅作历史记录，不再更新维护）。环境由老板自己/其他渠道负责，本任务只做**架构设计与代码实现**。
+- **🔧 环境搭建已恢复（2026-08-09 撤销）**：~~环境搭建永久暂停~~（ADR-005）已撤销，子任务可按需执行 npm/pnpm install、Python 依赖安装、素材下载（fetch-avatars.sh）、工具链配置等环境类操作，交付可运行代码；仍遵守轻量化约束（运行时 5-6 纯 JS 依赖，ADR-007）。
 
 ## 目标
 
