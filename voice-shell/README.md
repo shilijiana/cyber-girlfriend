@@ -6,8 +6,10 @@
 
 | 文件 | 说明 |
 |------|------|
-| `qwen-audio-client.ts` | Qwen-Audio-3.0-Realtime-Flash WebSocket 客户端（会话管理、instructions 注入、事件转发） |
+| `provider.ts` | VoiceProvider / VoiceSession 契约定义（对齐 module-contracts §2.2，VS-01） |
+| `qwen-audio-client.ts` | Qwen-Audio-3.0-Realtime-Flash WebSocket 客户端（会话管理、instructions 注入、事件转发、断线重连；VS-01 已交付，实测 7/7 通过） |
 | `gateway.ts` | `/ws/voice` 中继：浏览器 ↔ Qwen 双向音频流 + 双路分发（播放/字幕/数字人触发） |
+| `smoke-test.ts` | VS-01 验收脚本：`node --experimental-strip-types voice-shell/smoke-test.ts`（真实调用，消耗 API 额度） |
 
 ## 关键约束
 

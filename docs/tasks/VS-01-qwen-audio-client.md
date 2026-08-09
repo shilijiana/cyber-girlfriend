@@ -59,12 +59,14 @@ export interface VoiceProvider {
 { "type": "session.update", "session": {
     "instructions": "<personaInstructions>",   // 来自 FilePersonaProvider
     "modalities": ["audio", "text"],
-    "voice": "zh_female_roumeinvyou_uranus_bigtts",  // 小呆音色（可配）
+    "voice": "longanqian",  // 默认官方音色；小呆活泼人设可配 longanhuan_v3.6
     "input_audio_transcription": { "enabled": true }  // VS-05 转写开关
 } }
 // ② 上行音频（二进制或 base64 事件）
 { "type": "input_audio_buffer.append", "audio": "<base64>" }
 ```
+
+> ⚠️ **音色修正（2026-08-09 实测）**：旧音色 `zh_female_roumeinvyou_uranus_bigtts` 在 flash 模型**已不支持**（实测 Unsupported voice 错误），默认改为官方 `longanqian`。官方支持音色：longanqian / longanlingxin / longanlufeng / longanlingxi / longanxiaoxin / longanfengyue / longanyuanfei / longanhuan_v3.6 / longjielidou_v3.6 / longpaopao_v3.6 / longhuohuo_v3.6 / longchuanshu_v3.6 / loongmary / loongeva_v3.6 / loongjohn。客户端已加"音色不支持自动降级重发 session.update"容错。
 
 **服务端 → 客户端**（回调事件）：
 ```jsonc

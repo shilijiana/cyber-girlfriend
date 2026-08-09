@@ -5,7 +5,22 @@
 
 ---
 
-## 2026-08-09（M2 任务列表全面更新）
+## 2026-08-09（VS-01 Qwen-Audio WS 客户端完成，实测 7/7）
+
+### 做了什么
+- 执行 VS-01（voice-shell P0）：交付 `voice-shell/provider.ts`（VoiceProvider 契约，对齐 module-contracts §2.2）+ `voice-shell/qwen-audio-client.ts`（QwenAudioClient 实现）
+- 客户端能力：连接（Node 22 原生 WebSocket，零依赖）、session.update 人设注入、音频上下行（上行 PCM16k base64 / 下行 PCM24k）、事件分发（subtitle/audio/emotion/function_call，BR-02 extractFunctionCall 三形态兜底）、injectAssistantText（Hermes 结果朗读）、interrupt（response.cancel）、断线重连（指数退避 1s→30s，重连后自动重新注入）、activity 心跳防半死连接
+- 交付验收脚本 `voice-shell/smoke-test.ts`，真实 Key 实测 **7/7 通过**：连接/session.updated/字幕（"我是小呆，18岁的AI少女…"）/下行音频 278KB/上行静音帧无报错/断线重连/重连后继续对话
+
+### 决策
+- **音色修正**：规格旧音色 `zh_female_roumeinvyou_uranus_bigtts` 在 flash 模型已不支持（实测 401 Unsupported voice），默认改为官方 `longanqian`，可配（小呆活泼人设可换 longanhuan_v3.6）；加了"音色不支持自动降级重发 session.update"容错
+- **情绪事件**：官方协议无独立 emotion 事件（文档仅提示转写 delta 可能内嵌），实现兼容顶层 emotion + 转写内嵌两种来源，值白名单归一化（无效→neutral）
+- **VS-05 基础已铺**：input_audio_transcription 默认开启（enabled+fun-asr），转写事件已接收，对外回调透传留待 VS-05
+
+### 阻塞 / 下一步
+- 派 VS-02 网关（规格已就绪，依赖 VS-01 完成）+ AP-05 挂载
+
+---
 
 ### 做了什么
 - 老板要求"M2 任务列表都要更新一遍"→ 统一更新 M2 全部任务：
