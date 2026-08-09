@@ -235,9 +235,9 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | AV-01 | clip-matcher 迁移与适配 | P0 | ✅ | - | 从 cybergirlfriend/ 迁移，适配新架构（方案已确认，自检 16/16 ✅） |
-| AV-02 | manifest.json 设计 | P0 | 📋 | - | 路径/情绪标签/时长/嘴型活跃度，结构完整 |
+| AV-02 | manifest.json 设计 | P0 | 🔄 | - | 路径/情绪标签/时长/嘴型活跃度，结构完整（规格 `docs/tasks/AV-02-manifest.md`） |
 | AV-03 | 素材占位方案 | P1 | 📋 | AV-02 | 开源样片 + 卡通兜底 |
-| AV-04 | 情绪匹配与轮换 | P1 | 📋 | AV-01 | 情绪事件 → 选片，避免连续重复 |
+| AV-04 | 情绪匹配与轮换 | P1 | 🔄 | AV-01 | 情绪事件 → 选片，避免连续重复（规格 `docs/tasks/AV-04-emotion-matcher.md`，AV-01 ✅ 可开工） |
 
 ---
 
@@ -253,7 +253,7 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| CL-01 | AvatarCanvas 组件 | P0 | 📋 | AV-01 | `<video>` 播放 + idle/speaking/listening 切换 |
+| CL-01 | AvatarCanvas 组件 | P0 | 🔄 | AV-01 | `<video>` 播放 + idle/speaking/listening 切换（规格 `docs/tasks/CL-01-avatar-canvas.md`，AV-01 ✅ 可开工） |
 | CL-02 | useAvatar Hook | P1 | 📋 | CL-01 | 播放控制 + 情绪对齐 + 轮换 |
 | CL-03 | ChatUI 组件 | P1 | 📋 | AP-03 | 聊天界面，单一人设 |
 | CL-04 | CaptionBar 组件 | P1 | 📋 | VS-03 | 字幕显示（订阅 subtitle 事件） |

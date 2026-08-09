@@ -40,7 +40,7 @@
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
 | **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 🔄 进行中 | **VS-01 ✅ + VS-02 ✅ + VS-03 ✅ + VS-04 ✅（VAD 8/8）+ VS-05 ✅ + VS-06 ✅**；AP-05 待执行 |
-| **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 完成，AV-02~04 待执行 |
+| **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 ✅；AV-02/AV-04/CL-01 已出卡可开工 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
 | **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成 |
 
@@ -201,15 +201,15 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | AV-01 | clip-matcher.ts 迁移与适配 | P0 | ✅ | - | 从 cybergirlfriend/server/avatar/ 迁移，适配新架构接口（方案已确认 ✅） |
-| AV-02 | manifest.json 设计与实现 | P0 | 📋 | - | 素材清单：路径/情绪标签/时长/嘴型活跃度，结构完整（方案已确认 ✅） |
+| AV-02 | manifest.json 设计与实现 | P0 | 🔄 | - | 素材清单：路径/情绪标签/时长/嘴型活跃度，结构完整（规格 `docs/tasks/AV-02-manifest.md`，可开工） |
 | AV-03 | 素材占位方案 | P1 | 📋 | AV-02 | 开源授权样片 + 内置卡通形象兜底（老板负责素材后补） |
-| AV-04 | 情绪匹配与轮换策略 | P1 | 📋 | AV-01 | 情绪事件 → 选片，避免连续重复，随机+轮换 |
+| AV-04 | 情绪匹配与轮换策略 | P1 | 🔄 | AV-01 | 情绪事件 → 选片，避免连续重复，随机+轮换（规格 `docs/tasks/AV-04-emotion-matcher.md`，依赖 AV-01 ✅ 可开工） |
 
 ### client · 前端（M3 补充）
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| CL-01 | AvatarCanvas 组件 | P0 | 📋 | AV-01 | `<video>` 素材播放 + 状态切换（idle/speaking/listening） |
+| CL-01 | AvatarCanvas 组件 | P0 | 🔄 | AV-01 | `<video>` 素材播放 + 状态切换（idle/speaking/listening）（规格 `docs/tasks/CL-01-avatar-canvas.md`，依赖 AV-01 ✅ 可开工） |
 | CL-02 | useAvatar Hook | P1 | 📋 | CL-01 | 素材播放控制 + 情绪对齐 + 轮换逻辑 |
 
 ---

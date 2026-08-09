@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-08-09（M3 开工：AV-02/AV-04/CL-01 任务卡产出）
+
+### 做了什么
+- 老板指示"准备 M3 任务卡"→ 产出 3 份规格文档：
+  - `docs/tasks/AV-02-manifest.md`：素材清单（对齐 AV-01 Clip 接口，五情绪占位条目，入 git）
+  - `docs/tasks/AV-04-emotion-matcher.md`：有状态情绪匹配器（防重复/轮换/重置，复用 AV-01）
+  - `docs/tasks/CL-01-avatar-canvas.md`：AvatarCanvas 组件（video 播放 + idle/speaking/listening 三态）
+- TASKS.md / TASKS-CONFIG.md：AV-02/AV-04/CL-01 标 🔄 已出卡，M3 里程碑更新
+
+### 决策
+- M3 三线并行：AV-02（manifest，无依赖）+ AV-04（匹配，AV-01 ✅）+ CL-01（画布，AV-01 ✅）
+- AV-03（素材占位）依赖 AV-02，稍后派；素材视频文件不入库（gitignore）
+
+### 阻塞 / 下一步
+- 老板派 AV-02/AV-04/CL-01（均可立即开工）
+- AP-05（M2 收官）也可并行派
+
+---
+
 ## 2026-08-09（M2 批量验收：VS-03/04/05/06 全部通过，仅剩 AP-05）
 
 ### 做了什么
