@@ -1,0 +1,21 @@
+{
+  "dashscope": {
+    "apiKey": "",
+    "workspaceId": "",
+    "region": "cn-beijing",
+    "model": "qwen-audio-3.0-realtime-flash"
+  },
+  "hermes": {
+    "binPath": "hermes",
+    "modelProvider": "deepseek",
+    "apiKey": "",
+    "baseUrl": ""
+  },
+  "server": {
+    "port": 3000,
+    "host": "localhost"
+  },
+  "avatar": {
+    "assetsPath": "assets/avatars"
+  }
+}

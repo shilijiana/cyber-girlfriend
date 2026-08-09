@@ -1,0 +1,39 @@
+# ===== 依赖与构建 =====
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# ===== 密钥配置（CF-02：apikeys.json 忽略，example 入库）=====
+config/apikeys.json
+.env
+.env.local
+.env.*.local
+
+# ===== 素材库（大文件不入 Git，由 scripts/fetch-avatars.sh 下载）=====
+assets/avatars/
+assets/*.mp4
+assets/*.mov
+
+# ===== 日志与临时 =====
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# ===== 测试产物 =====
+coverage/
+test-results/
+playwright-report/
+
+# ===== 编辑器 / 系统 =====
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ===== 旧脚手架临时目录与离线工具（迁移源，无需入库）=====
+cybergirlfriend/_tmp_*
+cybergirlfriend/.tools/
+cybergirlfriend/node_modules/

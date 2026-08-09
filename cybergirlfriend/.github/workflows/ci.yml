@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ['main', '**']
+  pull_request:
+
+jobs:
+  test:
+    name: 单元 + 集成 + 覆盖率
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: 安装依赖
+        run: npm ci
+      - name: 类型检查与构建
+        run: npm run build
+      - name: 单元 + 集成测试（含覆盖率）
+        run: npm run test:coverage
+      - name: 生成汇总报告
+        run: npm run report
+      - name: 上传覆盖率产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage/
+            test-results/
+            test-summary.md
+      - name: 展示测试摘要
+        run: cat test-summary.md
+
+  e2e:
+    name: 端到端测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: 安装依赖
+        run: npm ci
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install --with-deps chromium
+      - name: 运行 E2E
+        run: npm run test:e2e
+      - name: 上传 E2E 报告（失败时）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/

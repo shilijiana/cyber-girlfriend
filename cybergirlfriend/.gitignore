@@ -1,0 +1,47 @@
+# 依赖
+node_modules/
+avatar-sidecar/.venv/
+avatar-sidecar/__pycache__/
+*.pyc
+
+# 构建产物
+dist/
+build/
+*.tsbuildinfo
+
+# 环境变量与密钥（绝不可入库）
+.env
+.env.local
+*.pem
+*.key
+
+# 数据库与本地数据
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# 数字人素材（大文件不入 Git：单文件可能 GB 级，超出仓库限制）
+assets/avatars/*.mp4
+assets/avatars/*.webm
+assets/avatars/*.mov
+
+# 测试产物
+coverage/
+playwright-report/
+test-results/
+test-summary.md
+
+# 日志
+*.log
+npm-debug.log*
+*.log.*
+
+# 编辑器 / 系统
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
