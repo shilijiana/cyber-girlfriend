@@ -5,6 +5,57 @@
 
 ---
 
+## 2026-08-09（协作模式修正：任务卡模式，老板明确）
+
+### 做了什么
+- 老板明确协作模式：**「整体架构」= 当前聊天框（出题/看进度/汇总）**；子任务由老板在项目下**新建独立任务/聊天框**执行，不在当前聊天框里写代码
+- WORKFLOW.md v1.3：§4.5 从"派活模板"改为"**任务卡模式**"——架构负责人出任务卡（自包含：背景/接口/验收/参考文档）→ 老板新建任务粘卡片执行 → 执行框汇报 → 架构负责人核对汇总
+- 修正我的执行偏差：之前用子代理直接执行子任务，不符合老板模式，已纠正
+
+### 决策
+- 协作闭环：小呆出题（任务卡）→ 老板分发（新建聊天框）→ 独立执行 → 小呆批改汇总
+- AP-01 已有一版产出（app/server/index.ts + routes.ts，子代理完成），保留作为参考；BR-01/PS-01 转为任务卡模式由老板新建任务执行
+
+### 阻塞 / 下一步
+- 向老板交付 BR-01 / PS-01 任务卡 → 老板新建聊天框执行
+- AP-02 任务卡待 BR-01/PS-01 就绪后出
+
+---
+
+## 2026-08-09（AP-01 完成：Express 装配与路由骨架）
+
+### 做了什么
+- 产出 `app/server/index.ts`：Express 装配（json 中间件 + `/api` 路由挂载 + `/api/events` SSE 骨架 + 条件 listen），导入 `../../config/loader` 的 `config` 驱动 host/port，用 `maskKey` 脱敏打日志
+- 产出 `app/server/routes.ts`：`createApiRouter(config)` 路由工厂；`GET /api/health` → `{status:"ok"}`；`chat`/`brain/status`/`avatar/status` 占位返回 501（待 AP-03）
+- `docs/TASKS.md`：AP-01 标记 ✅ DONE
+
+### 决策
+- 路由用工厂函数注入 config，为 AP-03 复用铺路，符合契约"只依赖接口"
+- SSE 骨架独立 `/api/events` 通道（心跳 15s + close 清理），后续 Orchestrator 事件统一走此通道
+
+### 阻塞 / 下一步
+- 未执行 npm install / tsc 校验（环境搭建红线），语法级 TypeScript 审查通过
+- 待 PS-01 / BR-01 就绪后派 AP-02（Core Orchestrator）
+
+---
+
+## 2026-08-09（M1 开工：派发 AP-01 / BR-01 / PS-01）
+
+### 做了什么
+- 老板下令"开工 M1" → 按架构负责人角色派活（不自己写代码）
+- TASKS.md：AP-01 / BR-01 / PS-01 标记 🔄 IN PROGRESS，M1 里程碑状态改"进行中"
+- 用 WORKFLOW §4.5 派活模板，把三个 P0 任务派给对应模块开发者
+
+### 决策
+- 三条线并行：AP-01（app Express 骨架）｜BR-01（brain hermes-runner）｜PS-01（persona PersonaProvider 接口）
+- 均不依赖老板拍板项（路径A/B、Hermes 模型、人设内容、判定规则——那是 AP-02 之后的事）
+
+### 阻塞 / 下一步
+- 等三个模块开发者回报进度 → 汇总给老板
+- 就绪后派 AP-02（Core Orchestrator，依赖 AP-01 + PS-01 + BR-01）
+
+---
+
 ## 2026-08-09（角色边界明确：架构负责人只派活看进度）
 
 ### 做了什么

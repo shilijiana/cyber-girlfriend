@@ -37,7 +37,7 @@
 | 里程碑 | 目标 | 状态 | 说明 |
 |--------|------|------|------|
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
-| **M1** 核心骨架 | app 装配 + persona + brain + function-router | 📋 待开工 | 文字链路先跑通 |
+| **M1** 核心骨架 | app 装配 + persona + brain + function-router | 🔄 进行中 | 文字链路先跑通 |
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 📋 待开工 | 语音链路打通 |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | 📋 待开工 | 可视化上线 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
@@ -104,7 +104,7 @@ config → app → persona → brain → voice-shell → avatar → client
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| AP-01 | Express 装配与路由骨架 | P0 | 📋 | CF-01 | `/api/health` 返回 `{status:"ok"}`；SSE 骨架就绪；config 加载器集成 |
+| AP-01 | Express 装配与路由骨架 | P0 | ✅ | CF-01 | `/api/health` 返回 `{status:"ok"}`；SSE 骨架就绪；config 加载器集成 |
 | AP-02 | Core Orchestrator 编排层 | P0 | 📋 | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 获取 instructions → brain 执行 → 返回结果 |
 | AP-03 | REST API 实现 | P1 | 📋 | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用 |
 | AP-04 | 旧脚手架迁移重构 | P1 | 📋 | AP-01 | cybergirlfriend/server → app/server，移除 SDK/DB/TDesign，代码量 -81% |
@@ -120,7 +120,7 @@ config → app → persona → brain → voice-shell → avatar → client
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| PS-01 | PersonaProvider 接口定义 | P0 | 📋 | - | `PersonaProvider` 接口 + `Persona`/`PersonaInfo` 类型定义完成 |
+| PS-01 | PersonaProvider 接口定义 | P0 | 🔄 | - | `PersonaProvider` 接口 + `Persona`/`PersonaInfo` 类型定义完成 |
 | PS-02 | HermesPersonaProvider 实现 | P0 | 📋 | PS-01, BR-01 | 通过 `hermes -z` 获取人设列表/加载人设/切换人设，instructions 透传 |
 | PS-03 | 人设切换 API | P2 | 📋 | PS-02 | `POST /api/persona/switch` 切换活跃人设，无需重启 |
 
@@ -128,7 +128,7 @@ config → app → persona → brain → voice-shell → avatar → client
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| BR-01 | hermes-runner.ts 实现 | P0 | 📋 | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底 |
+| BR-01 | hermes-runner.ts 实现 | P0 | 🔄 | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底 |
 | BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 hermes-runner → function_call_output 写回 |
 | BR-03 | Hermes 可用性探测 | P1 | 📋 | BR-01 | `/api/brain/status` 返回 Hermes 版本与可用性 |
 | BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时返回友好提示，Hermes 不可用时降级为纯 Qwen 答复 |
