@@ -5,6 +5,27 @@
 
 ---
 
+## 2026-08-09（AV-03 验收完成：素材占位方案交付）
+
+### 做了什么
+- **AV-03 素材占位方案（P1，✅）**：在老板已下载素材（Pexels 6 视频 + 8 图）基础上补齐方案交付：
+  - **manifest 登记真实素材**：`avatar/manifest.json` 从 10 条占位改为 **6 条真实片段**（五情绪全覆盖：happy×2/gentle/neutral/serious/surprise），src 对齐实际文件名，`durationSec` 用实测真实时长（7.12~13.01s）
+  - **时长实测**：ffprobe/ffmpeg 均不可用 → 自写 Python 解析 MP4（分片 mp4 走 tfhd default duration × trun count 累加；普通 mp4 走 mvhd/mdhd），6 视频全部解析成功
+  - **`avatar/manifest.example.json` 模板**：含 `downloadUrl`/`license` 字段说明（Pexels License 免费商用），供后补素材填写
+  - **README 同步**：`avatar/README.md`（素材结构 + 占位方案 A/B + 情绪标签占位说明）、`assets/README.md`（实际 clips/ 结构）、`scripts/README.md`（fetch-avatars.sh 暂缓说明）
+  - **自检**：临时校验脚本 11/11 通过（JSON 合法 / 四必填字段 / id 唯一 / 情绪值合法 / 五情绪全覆盖 / **src 文件真实存在** / clip-matcher 消费 / buildQueue / 双副本一致 / 卡通兜底图片就位），跑完已删
+- **看板**：TASKS.md AV-03 → ✅ DONE（M3 里程碑 AV-01~04 + CL-01 完成）；TASKS-CONFIG.md AV 模块行 + AV-03 ✅
+
+### 决策
+- 情绪标签为**占位分配**（按文件名语义 anime_girl→温和系 / girl_portrait→严肃系推测），README 注明后补真实素材时重新标注
+- 卡通兜底 = Pexels 动漫形象图 8 张（静态形象 + 音频能量驱动口型，供 CL-01 降级），无需额外生成 SVG
+- fetch-avatars.sh 暂缓：素材已手动下载就位，后补真实素材需可重复拉取时再实现
+
+### 阻塞 / 下一步
+- 无阻塞。M3 剩余：CL-02（useAvatar，依赖 CL-01 ✅ 可开工）
+
+---
+
 ## 2026-08-09（AV-03 素材就位：小呆形象素材下载完成）
 
 ### 做了什么

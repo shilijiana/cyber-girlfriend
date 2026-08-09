@@ -47,7 +47,7 @@
 | **persona** | PS | 人设文件化（v1.3）：PersonaProvider + FilePersonaProvider + 分区记忆 | ✅ PS-01~04 完成 |
 | **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | ✅ BR-01~05 完成 |
 | **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | ✅ VS-01~06 全部完成 |
-| **avatar** | AV | 数字人：素材匹配引擎 + 素材清单 + 情绪匹配与轮换 | 🔄 AV-01/02/04 完成 |
+| **avatar** | AV | 数字人：素材匹配引擎 + 素材清单 + 占位素材 + 情绪匹配与轮换 | 🔄 AV-01~04 完成 |
 | **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
 | **docs** | DC | 文档体系：三文档工作流（本文件属于此模块） | ✅ 完成 |
 | **Hermes 执行者** | HM | Hermes 作为子任务执行者承接的任务（守则/角色卡/记忆模板，审查类已转 CC） | 🔄 HM-01/02/03 完成 |
@@ -236,7 +236,7 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 |----|------|--------|------|------|----------|
 | AV-01 | clip-matcher 迁移与适配 | P0 | ✅ | - | 从 cybergirlfriend/ 迁移，适配新架构（方案已确认，自检 16/16 ✅） |
 | AV-02 | manifest.json 设计 | P0 | ✅ | - | 路径/情绪标签/时长/嘴型活跃度，结构完整（`avatar/manifest.json` 已交付：version:1 + 10 条占位 5 情绪全覆盖，双副本 + gitignore 例外，校验 11/11，规格 `docs/tasks/AV-02-manifest.md`） |
-| AV-03 | 素材占位方案 | P1 | 📋 | AV-02 | 开源样片 + 卡通兜底 |
+| AV-03 | 素材占位方案 | P1 | ✅ | AV-02 | 开源样片 + 卡通兜底（Pexels 6 视频 + 8 图已下载就位；manifest 登记 6 条真实片段五情绪全覆盖；example 模板含下载地址；README 同步；校验 11/11） |
 | AV-04 | 情绪匹配与轮换 | P1 | ✅ | AV-01 | 情绪事件 → 选片，避免连续重复（`avatar/emotion-matcher.ts` 已交付：有状态封装 pick/markPlayed/reset/getRecent，窗口默认 5 自动避重；自检 12/12 + tsc 零错误，2026-08-09 验收） |
 
 ---

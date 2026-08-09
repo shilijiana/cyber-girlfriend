@@ -11,7 +11,9 @@ config/apikeys.json
 .env.*.local
 
 # ===== 素材库（大文件不入 Git，由 scripts/fetch-avatars.sh 下载）=====
-assets/avatars/
+# manifest.json 是元数据（AV-02），例外入库；视频素材文件继续忽略
+assets/avatars/*
+!assets/avatars/manifest.json
 assets/*.mp4
 assets/*.mov
 

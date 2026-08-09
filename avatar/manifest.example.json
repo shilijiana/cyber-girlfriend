@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "clips": [
+    {
+      "id": "happy_01",
+      "emotion": "happy",
+      "durationSec": 11.01,
+      "src": "clips/anime_girl_1_pexels.mp4",
+      "downloadUrl": "https://www.pexels.com/zh-cn/video/<素材页ID>/",
+      "license": "Pexels License（免费商用，无需署名）"
+    }
+  ]
+}

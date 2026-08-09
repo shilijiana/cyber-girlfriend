@@ -1,39 +1,51 @@
 /**
- * app/server/index.ts —— Express 装配（AP-01 骨架 + AP-02 Orchestrator 接入）
+ * app/server/index.ts —— Express 装配（AP-01 骨架 + AP-02 Orchestrator 接入 + AP-05 WS 挂载）
  *
- * 职责：中间件、REST 路由挂载、SSE 骨架、条件 listen（测试友好）。
+ * 职责：中间件、REST 路由挂载、SSE 骨架、WS /ws/voice 挂载、条件 listen（测试友好）。
  * AP-02 变更：装配 Core Orchestrator（注入默认占位人设 + brainRunner），
  *   并传给 createApiRouter 实现 /api/chat 完整链路。
+ * AP-05 变更：启动改用 http.createServer(app)（WS 共享同一端口），
+ *   setupVoiceWebSocket 挂载 /ws/voice（gateway 由 VS-02 提供，本层负责挂载与生命周期），
+ *   增加 SIGINT/SIGTERM 优雅关闭（先断 WS → 再关 HTTP）。
+ *   personaProvider/orchestrator 提升为模块级单例：REST（createApiRouter）与 WS
+ *   （resolveInstructions）共享同一人设状态，切换人设两端一致。
  *
  * 模块边界：仅应用壳，不直接 import persona/brain 实现（通过 orchestrator 注入）。
  */
 import express from 'express';
 import type { Express } from 'express';
+import { createServer } from 'http';
 import { config, maskKey } from '../../config/loader.ts';
 import { createApiRouter } from './routes.ts';
 import { createOrchestrator } from './orchestrator.ts';
+import { setupVoiceWebSocket } from './ws.ts';
 import {
   createFilePersonaProvider,
   readActivePersonaId,
 } from '../../persona/file-persona-provider.ts';
 import { brainRunner } from '../../brain/hermes-runner.ts';
 
+// 模块级单例：createApp（REST）与 WS 启动共用，保证活跃人设状态一致（AP-05）
+const personaProvider = createFilePersonaProvider({
+  personasDir: config.hermes.personasDir,
+});
+const orchestrator = createOrchestrator({
+  personaProvider,
+  brainRunner,
+  defaultPersonaId: readActivePersonaId(config.hermes.personasDir), // 重启后沿用 active.txt
+});
+
+/** 解析当前活跃人设的 Qwen instructions（WS 连接建立时调用，契约 §2.4） */
+async function resolveInstructions(): Promise<string> {
+  const persona = await personaProvider.getPersona(orchestrator.getActivePersonaId());
+  return personaProvider.buildInstructions(persona);
+}
+
 export function createApp(): Express {
   const app = express();
 
   // 中间件
   app.use(express.json());
-
-  // 编排层装配：PS-03 文件化人设（读 personas/ 目录，active.txt 持久化切换）
-  // 设计依据：docs/research/hermes-capabilities-review.md §3.1 / §3.7
-  const personaProvider = createFilePersonaProvider({
-    personasDir: config.hermes.personasDir,
-  });
-  const orchestrator = createOrchestrator({
-    personaProvider,
-    brainRunner,
-    defaultPersonaId: readActivePersonaId(config.hermes.personasDir), // 重启后沿用 active.txt
-  });
 
   // REST API（/api 前缀）
   app.use('/api', createApiRouter(config, orchestrator));
@@ -76,12 +88,34 @@ const isDirectRun =
 
 if (isDirectRun) {
   const { port, host } = config.server;
-  app.listen(port, host, () => {
+
+  // AP-05：HTTP 与 WS 共享同一端口（http server 承载 Express 与 /ws/voice 升级）
+  const server = createServer(app);
+  const voiceWs = setupVoiceWebSocket({
+    server,
+    resolveInstructions,
+  });
+
+  // 优雅关闭：先断 WS 客户端（gateway 清理 Qwen 会话）→ 再关 HTTP → 退出；4s 兜底强退
+  const shutdown = (): void => {
+    console.log('[app] 收到关闭信号，正在优雅关闭…');
+    voiceWs
+      .close()
+      .catch(() => undefined)
+      .finally(() => {
+        server.close(() => process.exit(0));
+        setTimeout(() => process.exit(0), 4_000).unref?.();
+      });
+  };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+
+  server.listen(port, host, () => {
     console.log(`[app] 赛博女友 API 已启动 → http://${host}:${port}`);
     console.log(
       `[app] voice: ${config.dashscope.model} | dashscope key: ${maskKey(config.dashscope.apiKey)}`,
     );
-    console.log(`[app] SSE 通道: /api/events | REST: /api/*`);
+    console.log(`[app] SSE 通道: /api/events | REST: /api/* | WS 语音: /ws/voice`);
   });
 }
 

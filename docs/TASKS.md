@@ -40,7 +40,7 @@
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
 | **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | ✅ 完成 | **VS-01~06 ✅ + AP-05 ✅ + AP-06 ✅** —— 语音链路全通（/ws/voice 真实 Qwen 连接实测通过） |
-| **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01/02/04 ✅ + CL-01 ✅；AV-03（素材占位）/ CL-02（useAvatar）待开工 |
+| **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01/02/03/04 ✅ + CL-01 ✅；CL-02（useAvatar）待开工 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
 | **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成 |
 
@@ -202,7 +202,7 @@ config → app → persona → brain → voice-shell → avatar → client
 |----|------|--------|------|------|----------|
 | AV-01 | clip-matcher.ts 迁移与适配 | P0 | ✅ | - | 从 cybergirlfriend/server/avatar/ 迁移，适配新架构接口（方案已确认 ✅） |
 | AV-02 | manifest.json 设计与实现 | P0 | ✅ | - | 素材清单：路径/情绪标签/时长/嘴型活跃度，结构完整（`avatar/manifest.json` 已交付：version:1 + 10 条占位片段 5 情绪全覆盖，四必填字段对齐 Clip 接口，时长 3~8s；.gitignore 加 `!assets/avatars/manifest.json` 例外入 git，运行时副本同步；临时校验脚本 11/11 通过后已删，2026-08-09 验收） |
-| AV-03 | 素材占位方案 | P1 | 🔄 | AV-02 | 开源授权样片已下载（Pexels 6 视频 + 8 图，五情绪全覆盖），`avatar/manifest.json` 已登记 6 条真实片段，2026-08-09 素材就位待验收 |
+| AV-03 | 素材占位方案 | P1 | ✅ | AV-02 | 开源授权样片 + 卡通兜底（Pexels 6 视频 + 8 图已下载就位，`assets/avatars/clips/`；`avatar/manifest.json` 登记 6 条真实片段（五情绪全覆盖，时长实测 7.12~13.01s）；`manifest.example.json` 模板含 downloadUrl/license；README 同步占位方案；临时校验 11/11 通过后已删，2026-08-09 验收） |
 | AV-04 | 情绪匹配与轮换策略 | P1 | ✅ | AV-01 | 情绪事件 → 选片，避免连续重复，随机+轮换（`avatar/emotion-matcher.ts` 已交付：有状态封装 pick/markPlayed/reset/getRecent，窗口滑动默认 5 自动避重，复用 AV-01；自检 12/12 + tsc 零错误，2026-08-09 验收） |
 
 ### client · 前端（M3 补充）

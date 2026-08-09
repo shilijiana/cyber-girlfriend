@@ -231,7 +231,10 @@ class VoiceGatewayImpl implements VoiceGateway {
     dispatcher.bind(session);
 
     // ------------------------------------------------------------ 浏览器上行 → Qwen
-    const onBrowserMessage = (raw: unknown): void => {
+    // 帧类型判定（AP-05 实测修正）：ws 库（Node 22 + ws@8）文本帧与二进制帧都以 Buffer
+    // 交付（receiver.js: emit('message', buf, isBinary)），必须用 isBinary 标志区分——
+    // 否则 JSON 控制消息会被误判为二进制音频帧直接上行。mock 测试发 string 不受影响。
+    const onBrowserMessage = (raw: unknown, isBinary?: unknown): void => {
       if (closed || !session) return;
 
       // 二进制帧 → 直接作为上行音频（契约 §2.1：音频可走二进制 ArrayBuffer 形式）
@@ -239,7 +242,7 @@ class VoiceGatewayImpl implements VoiceGateway {
       if (Array.isArray(raw)) {
         payload = Buffer.concat(raw as Buffer[]);
       } else if (Buffer.isBuffer(raw)) {
-        payload = raw;
+        payload = isBinary === true ? raw : raw.toString('utf-8');
       } else if (raw instanceof ArrayBuffer) {
         payload = Buffer.from(raw);
       } else {
