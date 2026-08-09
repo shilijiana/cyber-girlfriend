@@ -5,6 +5,72 @@
 
 ---
 
+## 2026-08-09（任务进度综合更新：M3 完成 + M4 推进中，同步 Git）
+
+### 做了什么
+- 老板要求"更新项目信息/文档/Git"→ 全面核查最新进度：
+  - **M3 数字人 ✅ 收官**：AV-01~04 + CL-01/02 全部完成（画布 + useAvatar + 素材 + 匹配引擎）
+  - **M4 前端集成 🔄**：CL-06（useVoice 67/67）+ CL-08（audio.ts）✅，剩 CL-03/04/05/07/09
+  - 里程碑：M0~M2 ✅ / M3 ✅ / M4 🔄 / M5 📋
+- `.gitignore` 新增 `client/.tmp/`（临时测试产物不入库）
+- 提交并推送 GitHub
+
+### 决策
+- M4 剩余任务按依赖推进：CL-03（ChatUI）→ CL-09（迁移）→ CL-04/05/07
+- CC-01/CC-02（Claude Code 审查）随时可执行
+
+### 阻塞 / 下一步
+- 派 CL-03（ChatUI）继续 M4；或先跑 CC-01/02 审查
+
+---
+
+## 2026-08-09（CL-06 完成：useVoice 语音会话 Hook 交付 + CL-08 audio.ts 前置交付）
+
+### 做了什么
+- **CL-06 useVoice Hook（P0，✅）**：`client/src/hooks/useVoice.ts`——语音会话状态机（连接 /ws/voice，调 audio.ts）：
+  - **状态机抽纯函数** `client/src/voice/voice-machine.ts`：idle/connecting/connected/speaking/listening/closed/error 七态 + reducer + gateway status 映射（VS-02 协议对齐，node 可测）
+  - **WS 链路**：二进制 PCM16k 帧上行（gateway 二进制帧判定）/ base64 PCM24k 下行 → 顺序播放；ready/status/audio/subtitle/user_transcript/emotion/brain/error 全事件分发；sendInterrupt 打断；StrictMode 安全生命周期（卸载自动清理）
+- **CL-08 audio.ts 工具（P1，✅，CL-06 前置一并交付）**：`client/src/voice/audio.ts`——encodePCM16/decodePCM16（Int16 LE，端点对称 -1→-32768）/resampleLinear（时间轴语义 + 末端越界 clamp）/computeEnergy（RMS，供 CL-05）+ createMicCapture（getUserMedia→重采样 16k→Int16 帧）+ createAudioPlayer（PCM24k 顺序队列无间隙播放 + interrupt）；零第三方
+- **配套**：`client/package.json` 新增 `test:voice` 脚本；自检 67/67 + tsc 零错误 + vite build 通过（36 modules）
+- **踩坑**：① esbuild 相对路径在沙箱视图下解析异常，改用绝对路径；② vite build 清空 dist 被 WorkBuddy safe-delete 拦截，用 `--outDir .tmp/vite-out` 绕过验证；③ Float32Array 精度（0.8 存为 0.8000000119）导致能量断言容差 1e-9 过紧，放宽 1e-6
+
+### 决策
+- **CL-06 交付含 CL-08 前置**：TASKS-CONFIG §4 CL-06 执行入口含 `client/voice/audio.ts`，audio.ts 为 useVoice 直接依赖，一并交付并验收 CL-08（含能量分析函数）
+- **状态机与 React 解耦**：沿用 avatar-canvas-core 的"纯逻辑核心 + React 绑定"惯例，node 可自检
+
+### 阻塞 / 下一步
+- 待派 CL-03（ChatUI）/CL-04（CaptionBar）→ M4 收尾；CL-07（useChat）/CL-05（波形，能量函数已就绪）P2 延后
+- CC-01/CC-02（Claude Code 审查）待老板执行
+
+---
+
+## 2026-08-09（CL-02 完成：useAvatar 数字人控制 Hook 交付）
+
+### 做了什么
+- **CL-02 useAvatar Hook（P1，✅）**：`client/src/hooks/use-avatar.ts`——AvatarCanvas 的外部控制层：
+  - **素材加载**：manifest（AV-02/03）→ ClipLibrary（`toClipLibrary` 归一化 + 脏数据过滤）；外部注入优先，缺省自动加载
+  - **状态机控制**：state（idle/speaking/listening）+ `play(emotion?)`/`stop()`/`listen()`/`setState()`；`play(happy)` 一键"说话+情绪"
+  - **情绪对齐**：`setEmotion`（接 voice-shell emotion 事件 → 驱动选片）
+  - **轮换**：内部复用 AV-04 `EmotionMatcher` 自动避重；`next()` 手动换片（标记当前已播 → 强制重算）、`reset()` 清播放记忆；**rotationTick 规避 React bail out**（相同 setState 值不触发重渲染）
+  - `currentClip`/`hasAssets` 派生值：Hook 侧决策预览 + 空库降级信号
+- **顺手修复（CL-01 遗留）**：
+  - `avatar-canvas-test.ts` 过期断言：AV-03 后 manifest 10→6 条，"同情绪连续 2 次不重复"改用 neutral（2 条池）验证（happy 只剩 1 条，重复属预期回退）
+  - `client/package.json` `test:avatar` 脚本 bug：写 `avatar-canvas-test.tsx` 但文件是 `.ts`（esbuild 报 Could not resolve）→ 改 `node --experimental-strip-types` 直跑 + 新增 `test:avatar-hook`
+- **自检（全绿）**：`use-avatar-test.ts` **14/14**（素材加载 6 条真实片段/五情绪全覆盖、状态机 play/stop/listen、情绪对齐、轮换避重（neutral 池连续 2 次不重复）+ next 手动换片、空库降级、脏数据过滤）；CL-01 测试回归 13/13；**tsc 零错误（非 voice 模块）**；vite build 通过（36 modules）
+- **契约**：module-contracts.md 升 **v1.10**——§2.5 补 `UseAvatarOptions`/`UseAvatarResult` 接口 + 对接说明（Hook 与 AvatarCanvas 内部 matcher 独立实例、选片逻辑同源）
+- **看板**：TASKS.md CL-02 → ✅ DONE（M3 里程碑 AV-01~04 + CL-01/02 完成）；TASKS-CONFIG.md CL 模块行 + CL-01/02 ✅
+
+### 决策
+- Hook 与 AvatarCanvas 关系定位：useAvatar = 控制层（状态/情绪/素材 + 决策预览），AvatarCanvas = 播放器（CL-01 自主选片播放），两者 matcher 独立实例但逻辑同源，行为一致——避免改 CL-01 已验收组件
+- 测试模式沿用 CL-01 惯例：node --experimental-strip-types 直跑纯逻辑（manifest JSON import 用 `with { type: 'json' }`）
+- next() 用 rotationTick 而非"抖动 emotion"：React 对相同 setState 值 bail out，tick 计数是可靠的重算触发信号
+
+### 阻塞 / 下一步
+- ⚠️ `client/src/voice/`（CL-08 audio.ts 半成品）有 2 处 tsc 错误（Float32Array<ArrayBufferLike> 类型、voice-test.ts 缺 process 声明），**属 CL-08 范围未处理**，本次 tsc 验证已排除 voice 模块
+- 下一步：CL-03 ChatUI（依赖 AP-03 ✅ 可开工）/ CL-06 useVoice（依赖 VS-02 ✅）
+
+---
+
 ## 2026-08-09（任务进度全面更新：M2 ✅ + M3 收官在即 + 素材替换）
 
 ### 做了什么

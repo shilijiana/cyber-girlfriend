@@ -8,7 +8,7 @@
 - **创建时间**：2026-08-09
 - **简短描述**：**纯交互界面** Web 应用：云端 **Qwen-Audio-3.0-Realtime-Flash** 当"嘴和耳朵"（语音交互 + 人设快问快答），本地 **Hermes agent** 当"大脑"（具体事务执行 + 记忆，50+ 工具），中间用文本衔接（Function Calling 中转）。配套 **数字人素材库可视化**（情绪匹配引擎，运行时零 GPU）。**无记忆系统、无数据库**——记忆与事务全部归 Hermes 负责（老板 2026-08-09 明确）。
 - **架构总纲**：`docs/architecture/overall-architecture.md`（v1.1，任务模块目录：voice-shell/brain/persona/avatar + app/client + docs/assets/scripts/tests）
-- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 核心骨架 ✅ 完成**——AP-01~06 ✅、PS-01~04 ✅、BR-01~05 ✅（2026-08-09 实测：`hermes -z "1+1=?"` → `2`；`/api/chat` 走 persona→brain 完整链路返回小呆口吻答案、`/api/brain/status` 探测到 Hermes v0.20.0；BR-02 function-router 交付后冒烟 12/12 通过，真实 Hermes 8.1s 出结果）。**M2 语音链路 ✅ 完成（2026-08-09 收官）**：VS-01 ✅（实测 7/7）、VS-02 ✅（21/21 + 5/5）、VS-03 ✅（双路分发 17/17）、VS-04 ✅（VAD 与打断 8/8）、VS-05 ✅（输入转写 7/7 + 24/24）、VS-06 ✅（Function Calling 注册 15/15）、**AP-05 ✅（WS 服务端挂载：`app/server/ws.ts`——WebSocketServer attach `/ws/voice` + gateway/fc 装配 + 生命周期；自检 9/9 + 真实端到端 6/6：真实 Qwen 连接 `session.created` → `session.updated` 人设注入 → ready；附带修复 gateway 帧类型判断 bug）**、AP-06 ✅（环境变量）。**M3 数字人进行中**：AV-01 ✅、AV-02/AV-04/CL-01 已出任务卡可开工。
+- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 核心骨架 ✅ 完成**——AP-01~06 ✅、PS-01~04 ✅、BR-01~05 ✅（2026-08-09 实测：`hermes -z "1+1=?"` → `2`；`/api/chat` 走 persona→brain 完整链路返回小呆口吻答案、`/api/brain/status` 探测到 Hermes v0.20.0；BR-02 function-router 交付后冒烟 12/12 通过，真实 Hermes 8.1s 出结果）。**M2 语音链路 ✅ 完成（2026-08-09 收官）**：VS-01 ✅（实测 7/7）、VS-02 ✅（21/21 + 5/5）、VS-03 ✅（双路分发 17/17）、VS-04 ✅（VAD 与打断 8/8）、VS-05 ✅（输入转写 7/7 + 24/24）、VS-06 ✅（Function Calling 注册 15/15）、**AP-05 ✅（WS 服务端挂载：`app/server/ws.ts`——WebSocketServer attach `/ws/voice` + gateway/fc 装配 + 生命周期；自检 9/9 + 真实端到端 6/6：真实 Qwen 连接 `session.created` → `session.updated` 人设注入 → ready；附带修复 gateway 帧类型判断 bug）**、AP-06 ✅（环境变量）。**M3 数字人 ✅ 完成（2026-08-09）**：AV-01~04 ✅ + CL-01（AvatarCanvas）✅ + CL-02（useAvatar）✅。**M4 前端集成 🔄 进行中（2026-08-09 开工）**：CL-06（useVoice 语音会话 Hook）✅ + CL-08（audio.ts 采集/播放/能量分析）✅；CL-03（ChatUI）/CL-04（CaptionBar）待派。
 - **🔧 环境搭建已恢复（2026-08-09 撤销）**：~~环境搭建永久暂停~~（ADR-005）已撤销，子任务可按需执行 npm/pnpm install、Python 依赖安装、素材下载（fetch-avatars.sh）、工具链配置等环境类操作，交付可运行代码；仍遵守轻量化约束（运行时 5-6 纯 JS 依赖，ADR-007）。
 
 ## 目标
@@ -56,7 +56,11 @@
 │   └── hermes-persona-provider.ts  # HermesPersonaProvider（hermes -z 获取）
 ├── avatar/                  # 数字人素材匹配（AV-01 ✅）
 │   └── clip-matcher.ts      # 情绪→选片→队列，纯函数零依赖
-├── client/                  # React 前端（CL 待执行，仅有 README）
+├── client/                  # React 前端（CL-01/02/06/08 ✅）
+│   ├── src/App.tsx           # 前端壳（CL-01：AvatarCanvas 演示页）
+│   ├── src/components/       # AvatarCanvas.tsx + avatar-canvas-core.ts（纯逻辑核心）
+│   ├── src/hooks/            # useAvatar.ts（CL-02）+ useVoice.ts（CL-06：连 /ws/voice 语音状态机）
+│   └── src/voice/            # audio.ts（CL-08：PCM 编解码/重采样/能量 + 采集/播放）+ voice-machine.ts（状态机纯函数）+ voice-test.ts（自检 67/67）
 ├── voice-shell/             # 语音壳（VS-01~06 ✅ 全齐）
 │   ├── provider.ts          # VoiceProvider/VoiceSession 契约（§2.2 v1.8，含 onInputTranscript/onVadState/sendFunctionCallOutput）
 │   ├── qwen-audio-client.ts # Qwen-Audio Realtime WS 客户端（VS-01，实测 7/7；默认 server_vad + VAD 事件归一化）
@@ -158,7 +162,8 @@
 - [x] **素材库数字人启动（AV-01）完成**（2026-08-09）：`avatar/clip-matcher.ts` 从 cybergirlfriend 迁移并适配契约 v1.2 §2.5——素材库构造注入（`createClipMatcher`）、buildQueue 毫秒单位、`AvatarEmotion/AvatarClip` 改公共类型 `Emotion/Clip`；自检 16/16 通过（node 原生 TS，未引入测试框架）
 - [x] **M2 语音链路 6/6 完成（VS-01~06）**（2026-08-09）：VS-01 客户端（实测 7/7）→ VS-02 网关（21/21+5/5）→ VS-03 双路分发（17/17）→ **VS-04 VAD 与打断（8/8：onVadState + gateway listening 态 + server_vad 自动打断，契约 v1.8，规格 `docs/tasks/VS-04-vad-interrupt.md`）** → VS-05 输入转写（7/7+24/24）→ VS-06 Function Calling 注册（15/15）；**待 AP-05 WS 挂载**
 - [x] **AP-05 WS 服务端挂载完成（2026-08-09，M2 收官）**：`app/server/ws.ts` 交付——WebSocketServer attach `/ws/voice`（path 过滤）+ gateway/fc/provider 装配（契约 §2.8 用法落地）+ 生命周期（错误兜底/人设失败降级/优雅关闭）；`index.ts` 改 http server 共享端口 + SIGINT/SIGTERM 优雅关闭 + persona/orchestrator 模块级单例（REST/WS 人设一致）；**附带修复 gateway.ts 帧类型 bug**（ws 文本帧以 Buffer 交付，改用 isBinary 区分，否则 `{type:'audio'}` 控制消息被当音频帧上行）；验证：tsc 零错误 + 自检 9/9 + voice-shell 回归全绿 + 真实端到端 6/6（真实 Qwen 连接 session.updated 人设注入）
-- [ ] P4 素材库数字人（续）：AV-02 manifest.json 设计 / AV-04 情绪匹配与轮换 / CL-01 前端画布
+- [x] **P4 素材库数字人完成（AV-02~04 + CL-01/02）**（2026-08-09）：AV-02 manifest 设计 ✅ / AV-03 素材占位 ✅ / AV-04 情绪匹配与轮换 ✅ / CL-01 前端画布 ✅ / CL-02 useAvatar ✅
+- [x] **M4 前端集成开工：CL-06 useVoice + CL-08 audio.ts 完成**（2026-08-09）：`client/src/hooks/useVoice.ts`（连 /ws/voice 语音状态机：二进制 PCM16k 上行 / base64 PCM24k 下行、全事件分发、打断、StrictMode 安全）+ `client/src/voice/audio.ts`（PCM 编解码/重采样/RMS 能量 + createMicCapture/createAudioPlayer，零第三方）+ voice-machine.ts（状态机纯函数）；自检 67/67 + tsc 零错误 + vite build 通过；CL-03（ChatUI）/CL-04（CaptionBar）待派
 - [ ] P5 体验优化 + 收尾
 
 ---

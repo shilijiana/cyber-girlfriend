@@ -32,6 +32,7 @@ playwright-report/
 .tmp-probe/
 *.tmp.json
 tests/_tmp_*.ts
+client/.tmp/
 
 # ===== 编辑器 / 系统 =====
 .idea/

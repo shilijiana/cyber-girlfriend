@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test:avatar": "esbuild src/components/avatar-canvas-test.tsx --bundle --format=esm --outfile=.tmp/avatar-canvas-test.mjs --jsx=automatic && node .tmp/avatar-canvas-test.mjs"
+    "test:avatar": "node --experimental-strip-types src/components/avatar-canvas-test.ts",
+    "test:avatar-hook": "node --experimental-strip-types src/hooks/use-avatar-test.ts",
+    "test:voice": "esbuild src/voice/voice-test.ts --bundle --format=esm --outfile=.tmp/voice-test.mjs && node .tmp/voice-test.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",

@@ -40,8 +40,8 @@
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
 | **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | ✅ 完成 | **VS-01~06 ✅ + AP-05 ✅ + AP-06 ✅** —— 语音链路全通（/ws/voice 真实 Qwen 连接实测通过） |
-| **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01/02/03/04 ✅ + CL-01 ✅；CL-02（useAvatar）待开工 |
-| **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
+| **M3** 数字人 | avatar clip-matcher + 前端画布 | ✅ 完成 | AV-01~04 ✅ + CL-01/02 ✅（画布 + useAvatar + 素材 + 匹配引擎全通） |
+| **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 🔄 进行中 | CL-06（useVoice）+ CL-08（audio.ts）✅；CL-03/04/05/07/09 待开工 |
 | **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成 |
 
 ---
@@ -210,11 +210,11 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | CL-01 | AvatarCanvas 组件 | P0 | ✅ | AV-01 | `<video>` 素材播放 + 状态切换（idle/speaking/listening）（`client/src/components/AvatarCanvas.tsx` 已交付：状态/情绪 → 选片决策抽纯函数 `avatar-canvas-core.ts`（复用 AV-04 EmotionMatcher 避重），video 播放 + listening 暂停 + 播完轮换 + 无素材/加载失败降级卡通占位；配套最小初始化 Vite+React 前端工程（client/）；自检 13/13 + tsc 零错误 + vite build 通过 + dev server 可跑，2026-08-09 验收） |
-| CL-02 | useAvatar Hook | P1 | 📋 | CL-01 | 素材播放控制 + 情绪对齐 + 轮换逻辑 |
+| CL-02 | useAvatar Hook | P1 | ✅ | CL-01 | 素材播放控制 + 情绪对齐 + 轮换逻辑（`client/src/hooks/use-avatar.ts` 已交付：素材加载 manifest→ClipLibrary 归一化、状态机 idle/speaking/listening（play/stop/listen/setState）、情绪对齐 setEmotion、轮换 next/reset（AV-04 matcher 避重 + rotationTick 强制重算）；配套修复 CL-01 测试过期断言（AV-03 后 10→6 条）与 test:avatar 脚本 bug（.tsx→.ts）；自检 14/14 + tsc 零错误（非 voice 模块）+ vite build 通过 + 契约 v1.10，2026-08-09 验收） |
 
 ---
 
-## M4 · 前端集成（📋 待开工）
+## M4 · 前端集成（🔄 进行中）
 
 > **目标**：完整前端体验——聊天 UI + 字幕 + 波形 + 语音会话状态机。
 
@@ -224,10 +224,10 @@ config → app → persona → brain → voice-shell → avatar → client
 |----|------|--------|------|------|----------|
 | CL-03 | ChatUI 组件 | P1 | 📋 | AP-03 | 聊天界面，收敛单一人设，文字聊天可用 |
 | CL-04 | CaptionBar 组件 | P1 | 📋 | VS-03 | 字幕显示，S2S 副文本驱动（订阅 subtitle 事件） |
-| CL-05 | VoiceWaveform 组件 | P2 | 📋 | VS-02 | 情绪波形动画，AudioAnalyser 能量驱动 |
-| CL-06 | useVoice Hook | P0 | 📋 | VS-02 | 语音会话状态机：采集/播放/打断/状态（连接 /ws/voice，调 audio.ts） |
+| CL-05 | VoiceWaveform 组件 | P2 | 📋 | VS-02 | 情绪波形动画，AudioAnalyser 能量驱动（能量函数已随 CL-08 交付） |
+| CL-06 | useVoice Hook | P0 | ✅ | VS-02 | 语音会话状态机：采集/播放/打断/状态（`client/src/hooks/useVoice.ts` 已交付：连接 /ws/voice（二进制 PCM16k 上行 / base64 PCM24k 下行）、状态机抽纯函数 `voice-machine.ts`（idle/connecting/connected/speaking/listening/closed/error + gateway 状态映射）、audio→顺序播放 / subtitle / user_transcript / emotion / brain / error 全事件分发、sendInterrupt 打断、StrictMode 安全生命周期；自检 67/67 + tsc 零错误 + vite build 通过，2026-08-09 验收） |
 | CL-07 | useChat Hook | P2 | 📋 | AP-03 | 文本聊天（调试/降级） |
-| CL-08 | audio.ts 工具 | P1 | 📋 | - | getUserMedia 采集、播放、音频能量分析 |
+| CL-08 | audio.ts 工具 | P1 | ✅ | - | getUserMedia 采集、播放、音频能量分析（`client/src/voice/audio.ts` 已随 CL-06 前置交付：encodePCM16/decodePCM16（Int16 LE 对称端点）/resampleLinear（时间轴语义 + 末端 clamp）/computeEnergy（RMS，供 CL-05）+ createMicCapture（getUserMedia→48k→重采样 16k→Int16 帧）/createAudioPlayer（PCM24k 顺序队列无间隙播放 + interrupt 打断），零第三方，2026-08-09 验收） |
 | CL-09 | 旧脚手架前端迁移 | P1 | 📋 | CL-03 | cybergirlfriend/src → client/，多 Agent → 单一人设 |
 
 ---

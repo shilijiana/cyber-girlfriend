@@ -1,7 +1,7 @@
 # 模块接口契约（Module Contracts）
 
 > **文档定位**：赛博女友各任务模块之间的**开发契约**——定义每个模块暴露的接口、依赖的接口、消息格式与协议，确保各模块并行开发互不冲突。
-> **文档日期**：2026-08-09 · 版本 v1.9
+> **文档日期**：2026-08-09 · 版本 v1.10
 > **配套**：`docs/architecture/overall-architecture.md`（架构总纲）、`docs/adr/`（决策记录）
 > **v1.1 变更**（老板 2026-08-09）：**删除 MemoryStore 与 Db 接口**——赛博女友无记忆、无数据库，事务与记忆由 Hermes 负责。
 > **v1.2 变更**（2026-08-09）：新增 §2.7 Core Orchestrator（AP-02 编排层）与 `/api/chat` 契约细化。
@@ -12,6 +12,7 @@
 > **v1.7 变更**（2026-08-09）：**VS-06 Function Calling 注册**——§2.2 `VoiceSession` 新增 `sendFunctionCallOutput(out)`（写回 function_call_output 并触发 `response.create`，补齐 Function Calling 闭环）；§2.8 补装配说明（`voice-shell/function-calling.ts`：注册 hermesBrainTool → 拦截 → router.handle → 写回）。
 > **v1.8 变更**（2026-08-09）：**VS-04 VAD 与打断**——server_vad 模式契约落地：§2.1 WS 协议补 `status` 事件（含 `listening` 用户说话中态）；§2.2 `VoiceSession` 新增 `onVadState` 回调（speech_started/stopped 归一化为 `speaking: boolean`）；§2.9 `VoiceConsumer` 同步新增 `onVadState` 分发。**打断语义**：server_vad 下用户插话由服务端自动取消当前响应（response.done status=cancelled），客户端只需把 VAD 状态透传给前端（数字人 listening 态），无需主动 response.cancel。
 > **v1.9 变更**（2026-08-09）：**AV-04 情绪匹配与轮换**——§2.5 新增 `EmotionMatcher`（`avatar/emotion-matcher.ts`）：在 `ClipMatcher` 纯函数之上封装带会话状态的情绪匹配器（内部维护最近播放窗口，默认 5，自动避重复；`pick`/`markPlayed`/`reset`/`getRecent`），调用方只需传情绪事件。对接链路：Qwen 情绪事件 → `dispatcher.onEmotion` → `EmotionMatcher.pick` → Clip → CL-01 播放。自检 12/12 通过。
+> **v1.10 变更**（2026-08-09）：**CL-02 useAvatar 控制 Hook**——§2.5 补 client 侧对接说明：`useAvatar`（`client/src/hooks/use-avatar.ts`）为 AvatarCanvas 的外部控制层（素材加载 manifest→ClipLibrary、状态机 idle/speaking/listening、情绪对齐 setEmotion、轮换 next/reset），复用 §2.5 的 `createAvatarMatcher`/`pickClipForState`（avatar-canvas-core）。Hook 内部 matcher 与 AvatarCanvas 播放器内部 matcher 为独立实例，选片逻辑同源，行为一致。自检 14/14 + tsc 零错误（voice/ 模块未计入，属 CL-08 范围）。
 
 ---
 
@@ -213,6 +214,26 @@ export interface EmotionMatcher {
   getRecent(): string[];                 // 当前窗口快照（调试/测试用）
 }
 ```
+
+> **v1.10 补充（CL-02）**：client 侧控制 Hook `useAvatar`（`client/src/hooks/use-avatar.ts`）——AvatarCanvas 的外部控制层：
+>
+> ```ts
+> export interface UseAvatarOptions {
+>   library?: ClipLibrary | null;    // 外部注入素材库（缺省自动加载 manifest）
+>   initialState?: AvatarState;      // 默认 'idle'
+>   initialEmotion?: Emotion;        // 默认 'neutral'
+> }
+> export interface UseAvatarResult {
+>   state: AvatarState;              // idle/speaking/listening（喂 AvatarCanvas）
+>   emotion: Emotion;                // 当前情绪（喂 AvatarCanvas）
+>   library: ClipLibrary;            // 归一化素材库（喂 AvatarCanvas）
+>   currentClip: Clip | null;        // Hook 侧决策预览（与 AvatarCanvas 内部播放解耦）
+>   hasAssets: boolean;              // 无素材 → 前端降级
+>   setState / setEmotion / play / stop / listen / next / reset  // 控制方法
+> }
+> ```
+>
+> 选片复用 §2.5 `createAvatarMatcher`/`pickClipForState`（avatar-canvas-core）；next() 用 rotationTick 强制重算（React bail out 规避）。
 
 ### 2.6 已删除接口（v1.1）
 

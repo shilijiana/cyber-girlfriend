@@ -33,9 +33,9 @@ function check(name: string, cond: boolean, detail?: string): void {
   }
 }
 
-// ---------- 1. manifest 可用（AV-02 数据能消费） ----------
+// ---------- 1. manifest 可用（AV-02/AV-03 数据能消费） ----------
 console.log('\n[1] manifest 消费');
-check('manifest 归一化后 10 条片段', library.clips.length === 10, `实际 ${library.clips.length}`);
+check('manifest 归一化后 6 条真实片段（AV-03 素材）', library.clips.length === 6, `实际 ${library.clips.length}`);
 const emotions = new Set(library.clips.map((c) => c.emotion));
 check(
   '五情绪全覆盖',
@@ -62,10 +62,10 @@ console.log('\n[3] 情绪换片');
   const e1 = pickClipForState(matcher, 'speaking', 'happy');
   const e2 = pickClipForState(matcher, 'speaking', 'serious');
   check('happy → serious 换片', e1?.emotion === 'happy' && e2?.emotion === 'serious', `${e1?.emotion}→${e2?.emotion}`);
-  // 同情绪连续 pick：素材每情绪 2 条 → 连续 2 次确定性不重复（第 3 次回退全池属预期）
+  // 同情绪连续 pick：neutral 池 2 条 → 连续 2 次确定性不重复（第 3 次回退全池属预期；AV-03 素材 neutral 有 2 条）
   const matcher2 = createAvatarMatcher(library);
-  const first = pickClipForState(matcher2, 'speaking', 'happy');
-  const second = pickClipForState(matcher2, 'speaking', 'happy');
+  const first = pickClipForState(matcher2, 'speaking', 'neutral');
+  const second = pickClipForState(matcher2, 'speaking', 'neutral');
   check(
     '同情绪连续 2 次不重复（素材量内避重）',
     first !== null && second !== null && first.id !== second.id,

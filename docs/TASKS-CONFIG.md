@@ -48,7 +48,7 @@
 | **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | ✅ BR-01~05 完成 |
 | **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | ✅ VS-01~06 全部完成 |
 | **avatar** | AV | 数字人：素材匹配引擎 + 素材清单 + 占位素材 + 情绪匹配与轮换 | 🔄 AV-01~04 完成 |
-| **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
+| **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 🔄 CL-01/02/06/08 完成 |
 | **docs** | DC | 文档体系：三文档工作流（本文件属于此模块） | ✅ 完成 |
 | **Hermes 执行者** | HM | Hermes 作为子任务执行者承接的任务（守则/角色卡/记忆模板，审查类已转 CC） | 🔄 HM-01/02/03 完成 |
 | **Claude Code 执行者** | CC | 深度分析类任务（代码审查/依赖审计），只诊断不改码 | 📋 待执行 |
@@ -253,14 +253,14 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| CL-01 | AvatarCanvas 组件 | P0 | 🔄 | AV-01 | `<video>` 播放 + idle/speaking/listening 切换（规格 `docs/tasks/CL-01-avatar-canvas.md`，AV-01 ✅ 可开工） |
-| CL-02 | useAvatar Hook | P1 | 📋 | CL-01 | 播放控制 + 情绪对齐 + 轮换 |
+| CL-01 | AvatarCanvas 组件 | P0 | ✅ | AV-01 | `<video>` 播放 + idle/speaking/listening 切换（`client/src/components/AvatarCanvas.tsx` + `avatar-canvas-core.ts` 已交付，自检 13/13 + tsc 零错误 + vite build，规格 `docs/tasks/CL-01-avatar-canvas.md`） |
+| CL-02 | useAvatar Hook | P1 | ✅ | CL-01 | 播放控制 + 情绪对齐 + 轮换（`client/src/hooks/use-avatar.ts` 已交付：素材加载/状态机/情绪对齐/next+reset 轮换，自检 14/14 + tsc 零错误 + vite build，契约 v1.10） |
 | CL-03 | ChatUI 组件 | P1 | 📋 | AP-03 | 聊天界面，单一人设 |
 | CL-04 | CaptionBar 组件 | P1 | 📋 | VS-03 | 字幕显示（订阅 subtitle 事件） |
 | CL-05 | VoiceWaveform 组件 | P2 | 📋 | VS-02 | 情绪波形动画（AudioAnalyser 能量驱动） |
-| CL-06 | useVoice Hook | P0 | 📋 | VS-02 | 语音状态机：采集/播放/打断（连 /ws/voice，调 audio.ts） |
+| CL-06 | useVoice Hook | P0 | ✅ | VS-02 | 语音状态机：采集/播放/打断（`client/src/hooks/useVoice.ts` 交付：连 /ws/voice（二进制 PCM16k 上行/base64 PCM24k 下行）+ 状态机纯函数 voice-machine.ts + 全事件分发 + 打断；自检 67/67 + tsc 零错误 + vite build 通过） |
 | CL-07 | useChat Hook | P2 | 📋 | AP-03 | 文本聊天（调试/降级） |
-| CL-08 | audio.ts 工具 | P1 | 📋 | - | getUserMedia 采集、播放、能量分析 |
+| CL-08 | audio.ts 工具 | P1 | ✅ | - | getUserMedia 采集、播放、能量分析（`client/src/voice/audio.ts` 随 CL-06 前置交付：PCM 编解码/重采样/RMS 能量 + createMicCapture/createAudioPlayer，零第三方） |
 | CL-09 | 旧脚手架迁移 | P1 | 📋 | CL-03 | cybergirlfriend/src → client/ |
 
 ---
