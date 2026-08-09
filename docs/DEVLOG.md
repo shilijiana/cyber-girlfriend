@@ -5,6 +5,27 @@
 
 ---
 
+## 2026-08-09（M2 开工：VS-01 任务卡产出，依赖全齐）
+
+### 做了什么
+- 老板指示"开始 M2 相关任务分配"→ 梳理 M2 依赖链（VS-01 起点 → VS-02 网关 → VS-03/04/06 分发）
+- 产出 `docs/tasks/VS-01-qwen-audio-client.md`（完整任务规格）：
+  - 实测连接信息（WS URL / Bearer 鉴权 / 音频格式）
+  - 接口契约（VoiceSession/VoiceProvider，对齐契约 §2.2）
+  - 协议要点（session.update / 音频事件 / function_call 三形态）
+  - 6 条验收标准 + 边界红线
+- TASKS.md / TASKS-CONFIG.md：VS-01 标 🔄 已出卡，M2 里程碑 🔄 进行中
+
+### 决策
+- VS-01 依赖全齐（PS-02 ✅ + BR-02 ✅ + API Key ✅ 实测），可立即派发
+- 规格文档含实测数据，新聊天框照做即可，无需再摸索
+
+### 阻塞 / 下一步
+- 老板新建聊天框 → 执行 VS-01 → 验收后派 VS-02（网关）+ AP-05（WS 服务端）
+- AV-02（manifest.json，M3）无依赖可并行
+
+---
+
 ## 2026-08-09（DASHSCOPE API Key 实测通过：WS 连接 + 人设注入成功）
 
 ### 做了什么

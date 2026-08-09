@@ -205,18 +205,18 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | **执行入口** | `voice-shell/qwen-audio-client.ts`、`voice-shell/gateway.ts` |
 | **输入参数** | WS 消息 `{type:'start'/'audio'/'interrupt'}`；PCM 16kHz 上行音频 |
 | **预期输出** | WS 下行 `{type:'audio'/'subtitle'/'emotion'/'brain'/'error'}`；PCM 24kHz 音频 |
-| **📌 连接实测（2026-08-09）** | WS URL `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash`，Header Bearer 鉴权，连接+session.update 已实测通过；API Key 已配置 |
+| **📌 连接实测（2026-08-09）** | WS URL `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash`，Header `Authorization: Bearer <Key>` 鉴权；实测连接成功 → `session.created`（session_id 返回）→ `session.update`（人设注入）被接受；API Key 已写入 `config/apikeys.json`（gitignore） |
 
 **任务清单**：
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| VS-01 | Qwen-Audio WS 客户端 | P0 | 📋 | PS-02, Key | 连接 realtime WS，session.update 注入 instructions |
+| VS-01 | Qwen-Audio WS 客户端 | P0 | 📋 | PS-02, Key | 连接 realtime WS，session.update 注入 instructions（详细规格见 `docs/tasks/VS-01-qwen-audio-client.md`） |
 | VS-02 | 语音网关 gateway.ts | P0 | 📋 | VS-01 | `/ws/voice` 中继：上行 PCM16k → Qwen，下行 PCM24k → 浏览器 |
 | VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频→播放；副文本→字幕；情绪→数字人 |
 | VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，说话自动打断 |
 | VS-05 | 输入转写 | P2 | 📋 | VS-01 | enableInputAudioTranscription 开启 |
-| VS-06 | Function Calling 注册 | P0 | 📋 | BR-02, VS-01 | hermes_brain 工具注册，function_call → router |
+| VS-06 | Function Calling 注册 | P0 | 📋 | BR-02, VS-01 | hermes_brain 工具注册（用 BR-02 `hermesBrainTool` schema），function_call → router |
 
 ---
 
