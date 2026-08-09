@@ -45,7 +45,7 @@
 | **config** | CF | 配置中心：密钥集中管理（文件优先、环境变量兜底） | ✅ 完成 |
 | **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01/02/03/04/06 完成 |
 | **persona** | PS | 人设文件化（v1.3）：PersonaProvider + FilePersonaProvider + 分区记忆 | 🔄 PS-01/02/03 完成 |
-| **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | 🔄 BR-01/03 完成 |
+| **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | ✅ BR-01~05 完成 |
 | **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 📋 待执行 |
 | **avatar** | AV | 数字人：素材匹配引擎（AV-01 完成） | 🔄 AV-01 完成 |
 | **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
@@ -170,9 +170,9 @@ M5:  联调收尾
 
 | 项 | 内容 |
 |----|------|
-| **执行入口** | `brain/hermes-runner.ts`（+ 后续 `brain/function-router.ts`） |
+| **执行入口** | `brain/hermes-runner.ts`（子进程调用）+ `brain/function-router.ts`（function 路由中转） |
 | **输入参数** | 任务文本（Qwen function_call 入参）`{instruction, context?, timeoutMs?}` |
-| **预期输出** | `BrainResult`：`{ok, output, durationMs, error?}` |
+| **预期输出** | `BrainResult`：`{ok, output, durationMs, error?}`；function 链路：`FunctionCall → FunctionCallOutput`（契约 v1.4 §2.8） |
 
 **接口定义（契约 v1.2）**：
 ```ts
@@ -188,12 +188,13 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底（优化：加 `--profile cyber-girlfriend -t terminal,file,web`） |
-| BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 runner → function_call_output 写回 |
+| BR-02 | function-router.ts 实现 | P0 | ✅ | BR-01, AP-02 | 拦截 function_call → 调 runner → function_call_output 写回（`brain/function-router.ts` 已交付，2026-08-09 实测 12/12 通过，真实 Hermes 8.1s 出结果） |
 | BR-03 | Hermes 可用性探测 | P1 | ✅ | BR-01 | `/api/brain/status` 返回版本与可用性（routes.ts 已实现，实测 `{available:true, version:"Hermes Agent v0.20.0"}`） |
 | BR-04 | 超时与错误处理 | P1 | ✅ | BR-01 | 超时友好提示；Hermes 不可用降级纯 Qwen（orchestrator 已实现降级） |
 | BR-05 | 工具集白名单 + AGENTS.md 安全层 | P0 | ✅ | BR-01 | runner 已加 `--profile cyber-girlfriend -t terminal,file,web`；AGENTS.md 已产出（HM-01） |
 
 > 📌 **BR-01 实现规格**：`brain/hermes-runner-spec.md`（接口定义 + 实测 Hermes 参数 + 参考骨架 + 验收自检表，实测 `hermes -z "1+1=?"` → `2。`）
+> 📌 **BR-02 已交付**：`brain/function-router.ts`（契约 v1.4 §2.8）——`extractFunctionCall(event)` 提取 3 形态 function_call / `handle()` 拦截 hermes_brain → 调 runner / `buildFunctionCallOutputEvent()` 构造写回事件 / `hermesBrainTool` 工具 schema（VS-06 直接用）。实测 12/12 通过，真实 Hermes `1+1=?` → `2` 耗时 8.1s。
 
 ---
 

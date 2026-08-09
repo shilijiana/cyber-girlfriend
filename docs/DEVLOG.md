@@ -5,6 +5,30 @@
 
 ---
 
+## 2026-08-09（BR-02 完成：function-router.ts，M1 收官）
+
+### 做了什么
+- 老板指示"执行 BR-02"→ 实现 `brain/function-router.ts`（Function Calling 中转器）：
+  - `extractFunctionCall(event)`：兼容 3 种下行事件形态（conversation.item.created / response.output_item.done / 顶层 function_call），归一化为协议无关的 `FunctionCall`
+  - `handle(call)`：拦截 `hermes_brain` → 解析 arguments（instruction/context/timeoutMs，JSON 解析失败兜底为纯文本 instruction）→ 调 hermes-runner → 序列化 `FunctionCallOutput` 写回；不抛错，未知工具/空 instruction/runner 失败统一 `status:'failed'` + error
+  - `buildFunctionCallOutputEvent()`：构造上行 `conversation.item.create`（function_call_output）事件；`hermesBrainTool`：工具 schema（VS-06 注册直接用）
+  - 依赖注入：`createFunctionRouter(runner?)` 工厂 + 默认实例；零新依赖（仅 hermes-runner.ts + Node 内置）
+- 契约先行（红线 4）：module-contracts.md **v1.4** 新增 §2.8 FunctionRouter（补齐 FunctionCall 公共类型）
+- 实测：tsc 零错误；冒烟测试 **12/12 通过**；真实 Hermes `1+1=?` → completed，output `2`，耗时 **8.1s**
+
+### 决策
+- router 与协议解耦：WS 收发归 voice-shell（VS-01），router 只做"事件归一化 ↔ 任务执行 ↔ 输出构造"，VS-06 几行代码即可接入
+- 失败不抛错：所有失败以 failed 写回（含 error），由 Qwen 转述为友好语音（对齐契约 §2.7 错误语义）
+- timeoutMs 上限 120s（与 hermes-runner 默认对齐），防 Qwen 传超大值
+
+### 阻塞 / 下一步
+- **M1 里程碑 ✅ 完成**（文字链路全通）
+- **M2 语音链路：VS-01**（依赖 PS-02 ✅ + API Key）+ **VS-06**（依赖 BR-02 ✅ + VS-01，工具 schema 已就绪）
+- **M3：AV-02 manifest.json**（无依赖，可派）
+- CC-01/CC-02 待老板让 Claude Code 执行
+
+---
+
 ## 2026-08-09（任务进度全面同步：CF-02/BR-04/BR-05/PS-04 补标完成）
 
 ### 做了什么

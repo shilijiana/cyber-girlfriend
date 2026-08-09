@@ -8,7 +8,7 @@
 - **创建时间**：2026-08-09
 - **简短描述**：**纯交互界面** Web 应用：云端 **Qwen-Audio-3.0-Realtime-Flash** 当"嘴和耳朵"（语音交互 + 人设快问快答），本地 **Hermes agent** 当"大脑"（具体事务执行 + 记忆，50+ 工具），中间用文本衔接（Function Calling 中转）。配套 **数字人素材库可视化**（情绪匹配引擎，运行时零 GPU）。**无记忆系统、无数据库**——记忆与事务全部归 Hermes 负责（老板 2026-08-09 明确）。
 - **架构总纲**：`docs/architecture/overall-architecture.md`（v1.1，任务模块目录：voice-shell/brain/persona/avatar + app/client + docs/assets/scripts/tests）
-- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 核心骨架进行中——BR-01（brain/hermes-runner.ts）✅、PS-01（persona/provider.ts）✅、AP-01（Express 装配）✅、AP-02（Core Orchestrator）✅、AP-03（REST API）✅、AP-04（旧脚手架迁移重构）✅**（2026-08-09 实测通过：`hermes -z "1+1=?"` → `2`；`/api/chat` 走 persona→brain 完整链路返回小呆口吻答案、`/api/brain/status` 探测到 Hermes v0.20.0、`/api/avatar/status` 返回 clip 引擎；AP-04 迁移后根目录 `npm run typecheck` 零错误），剩余决策（路径 A/B、Hermes 后端模型、人设内容）待老板拍板。
+- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 核心骨架 ✅ 完成**——AP-01~06 ✅、PS-01~04 ✅、BR-01~05 ✅（2026-08-09 实测：`hermes -z "1+1=?"` → `2`；`/api/chat` 走 persona→brain 完整链路返回小呆口吻答案、`/api/brain/status` 探测到 Hermes v0.20.0；BR-02 function-router 交付后冒烟 12/12 通过，真实 Hermes 8.1s 出结果）。下一步 M2 语音链路（VS-01，依赖 PS-02 ✅ + API Key）。
 - **🔧 环境搭建已恢复（2026-08-09 撤销）**：~~环境搭建永久暂停~~（ADR-005）已撤销，子任务可按需执行 npm/pnpm install、Python 依赖安装、素材下载（fetch-avatars.sh）、工具链配置等环境类操作，交付可运行代码；仍遵守轻量化约束（运行时 5-6 纯 JS 依赖，ADR-007）。
 
 ## 目标
@@ -44,8 +44,9 @@
 │       ├── routes.ts        # REST API（health/chat/brain/avatar）
 │       ├── orchestrator.ts  # Core Orchestrator 编排层（persona→brain）
 │       └── default-persona-provider.ts  # 占位人设（PS-02 交付后替换注入）
-├── brain/                   # Hermes 大脑（BR-01/03 ✅）
+├── brain/                   # Hermes 大脑（BR-01~05 ✅）
 │   ├── hermes-runner.ts     # hermes -z 子进程调用（120s 超时、错误兜底）
+│   ├── function-router.ts   # Function Calling 中转（BR-02）：拦截 function_call → 调 runner → 写回
 │   └── hermes-runner-spec.md
 ├── persona/                 # 人设接口（PS-01/02 ✅）
 │   ├── provider.ts          # PersonaProvider 抽象 + 类型守卫
@@ -139,7 +140,7 @@
   - [x] **PersonaProvider 接口（PS-01）完成**（2026-08-09）：`persona/provider.ts` 交付——`PersonaProvider` 接口（listPersonas/getPersona/buildInstructions/switchPersona）+ `Persona`/`PersonaInfo` 类型 + `isPersona`/`isPersonaInfo` 类型守卫，契约 v1.2 对齐，tsc strict 零报错
   - [x] **Core Orchestrator（AP-02）代码就位 + REST API（AP-03）完成**（2026-08-09）：`app/server/orchestrator.ts`（persona→brain 编排层）+ `default-persona-provider.ts`（占位人设）+ `routes.ts` 三接口（/api/chat /api/brain/status /api/avatar/status）实测全通过；根目录新建 package.json（express ^4.18.2）
   - [x] **旧脚手架迁移重构（AP-04）完成**（2026-08-09）：根 `package.json` 规范化（name=cyber-girlfriend + typecheck 脚本）、新建 `tsconfig.json`（strict/NodeNext/allowImportingTsExtensions）；删除 `cybergirlfriend/server/` 全部废弃文件（db.ts/mcp-servers.ts/index.ts/index.d.ts/avatar/clip-matcher.ts）；安装 typescript+@types/express 开发依赖；运行时依赖 13→1（仅 express）；`npm run typecheck` 零错误、`/api/health`+`/api/chat` 实测通过
-  - [ ] Function Router（BR-02，chat vs. work）
+  - [x] **Function Router（BR-02）完成**（2026-08-09）：`brain/function-router.ts` 交付——extractFunctionCall 兼容 3 种下行事件形态 / handle 拦截 hermes_brain → 调 runner / buildFunctionCallOutputEvent 构造写回 / hermesBrainTool 工具 schema（VS-06 直接用）；契约 v1.4 §2.8 登记；tsc 零错误 + 冒烟 12/12 + 真实 Hermes `1+1=?` → `2`（8.1s）
   - [x] **HermesPersonaProvider 实现（PS-02）完成**（2026-08-09）：`persona/hermes-persona-provider.ts` 交付（hermes -z 获取人设，JSON 容错 + 类型守卫）
   - [ ] Git init + 首次提交
 - [ ] P2 工作集成增强（Hermes 常驻 + 多轮）
@@ -149,4 +150,4 @@
 - [ ] P5 体验优化 + 收尾
 
 ---
-*最后更新：2026-08-09（纯交互界面定位：删记忆/数据库，事务与记忆归 Hermes；M1 进展：BR-01/PS-01/02/AP-01/02/03/04/06 ✅；AP-04 迁移后运行时依赖 13→1，tsc 零错误）*
+*最后更新：2026-08-09（M1 ✅ 收官：BR-02 function-router 交付，契约 v1.4 §2.8；下一步 M2 语音链路 VS-01/VS-06 + M3 AV-02）*

@@ -1,11 +1,12 @@
 # 模块接口契约（Module Contracts）
 
 > **文档定位**：赛博女友各任务模块之间的**开发契约**——定义每个模块暴露的接口、依赖的接口、消息格式与协议，确保各模块并行开发互不冲突。
-> **文档日期**：2026-08-09 · 版本 v1.3
+> **文档日期**：2026-08-09 · 版本 v1.4
 > **配套**：`docs/architecture/overall-architecture.md`（架构总纲）、`docs/adr/`（决策记录）
 > **v1.1 变更**（老板 2026-08-09）：**删除 MemoryStore 与 Db 接口**——赛博女友无记忆、无数据库，事务与记忆由 Hermes 负责。
 > **v1.2 变更**（2026-08-09）：新增 §2.7 Core Orchestrator（AP-02 编排层）与 `/api/chat` 契约细化。
 > **v1.3 变更**（2026-08-09）：**人设文件化落地**——PersonaProvider 实现改为 FilePersonaProvider（直读 `~/.hermes/personas/`），人设分区记忆 + 专用 profile `cyber-girlfriend`（详见 `docs/research/hermes-capabilities-review.md` §3.1）。
+> **v1.4 变更**（2026-08-09）：新增 §2.8 FunctionRouter（BR-02）——Qwen Realtime function_call 中转契约，补齐 §2.2 引用的 `FunctionCall` 公共类型。
 
 ---
 
@@ -221,6 +222,58 @@ export interface CoreOrchestrator {
 **依赖注入**：`createOrchestrator({ personaProvider, brainRunner })` 只依赖 §2.3 `BrainRunner` 与 §2.4 `PersonaProvider` 抽象接口；PersonaProvider 的具体实现由装配处提供（当前为 app 内嵌 `DefaultPersonaProvider` 占位，PS-02 交付后替换，zero 代码改动）。
 
 **错误处理**：brain 执行失败（超时/不可用）不抛错——`ChatResult.ok = false`，`reply` 为友好降级提示，由 REST 层转 HTTP 200（业务失败）而非 5xx（契约 §3.3 的上层统一转换）。
+
+### 2.8 voice-shell ↔ brain（FunctionRouter，BR-02 新增）
+
+> **v1.4 补充（BR-02）**：Qwen-Audio Realtime 的 Function Calling 中转器——拦截下行 `function_call`（OpenAI Realtime 兼容协议）→ 调 `BrainRunner`（§2.3）→ 构造上行 `function_call_output` 写回。位于 voice-shell（协议收发）与 brain（任务执行）之间，只做**文本中转**（红线 4 不漂移）。
+
+```ts
+// brain/function-router.ts
+export const HERMES_TOOL_NAME = 'hermes_brain';   // 工具注册名（VS-06 注册用）
+
+/** 归一化函数调用（协议无关，从 Qwen Realtime 事件提取） */
+export interface FunctionCall {
+  callId: string;                        // 回写时原样带回（call_id）
+  name: string;                          // 工具名（如 hermes_brain）
+  arguments: Record<string, unknown>;    // 已解析的参数对象
+  rawArguments?: string;                 // 原始 arguments（JSON 解析失败时兜底为 instruction）
+}
+
+/** 函数调用输出（写回 Qwen 的内容） */
+export interface FunctionCallOutput {
+  callId: string;
+  output: string;                        // JSON 文本：{ok, output, durationMs, error?}
+  status: 'completed' | 'failed';        // failed = 参数非法 / runner 失败 / 未知工具
+}
+
+/** 中转器契约：拦截 → 调 runner → 写回 */
+export interface FunctionRouter {
+  handle(call: FunctionCall): Promise<FunctionCallOutput>;
+}
+
+/** 工具 schema（VS-06 注册到 Qwen session 用，小而严格，只传 instruction/context/timeoutMs） */
+export const hermesBrainTool: object;
+
+/** 从 Qwen Realtime 下行事件提取 function_call（非 function_call 事件返回 null） */
+export function extractFunctionCall(event: unknown): FunctionCall | null;
+
+/** 构造上行 function_call_output 事件（conversation.item.create） */
+export function buildFunctionCallOutputEvent(out: FunctionCallOutput): unknown;
+```
+
+**事件协议**（Qwen-Audio-3.0-Realtime-Flash，OpenAI Realtime 兼容）：
+
+```
+Qwen 下行 →  { type: 'conversation.item.created', item: { type: 'function_call',
+                name: 'hermes_brain', arguments: '{"instruction":"..."}', call_id: 'call_xxx' } }
+                （也兼容 response.output_item.done / 顶层 function_call 形态）
+客户端执行 →  extractFunctionCall(event) → router.handle(call)
+客户端上行 →  { type: 'conversation.item.create', item: { type: 'function_call_output',
+                call_id: 'call_xxx', output: '{"ok":true,"output":"...","durationMs":1234}' } }
+                → 再发 { type: 'response.create' } 让模型组织语音回复
+```
+
+**错误语义**：router 不抛错——所有失败（未知工具 / 参数非法 / runner 超时失败）都以 `status:'failed'` 写回，output 含 `error` 描述，由 Qwen 转述为友好语音。`callId` 缺失时无法写回，返回 `status:'failed'` 且 `callId` 为空。
 
 ---
 

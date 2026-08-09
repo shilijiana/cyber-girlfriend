@@ -7,7 +7,22 @@
 | 文件 | 说明 |
 |------|------|
 | `hermes-runner.ts` | `hermes -z "任务"` 子进程调用（120s 超时、1MB 输出上限），捕获 stdout 结果文本 |
-| `function-router.ts` | 拦截 Qwen 的 `function_call("hermes_brain")` → 调 hermes-runner → `function_call_output` 写回 |
+| `function-router.ts` | Function Calling 中转（BR-02）：拦截 Qwen 的 `function_call("hermes_brain")` → 调 hermes-runner → `function_call_output` 写回；含事件提取 / 工具 schema / 写回事件构造（契约 v1.4 §2.8） |
+
+## 快速使用（function-router）
+
+```ts
+import { functionRouter, extractFunctionCall, buildFunctionCallOutputEvent, hermesBrainTool } from './function-router.ts';
+
+// voice-shell（VS-06）接入：
+// ① 注册工具：session.update({ tools: [hermesBrainTool] })
+// ② 收到下行事件 → 提取 + 执行：
+const call = extractFunctionCall(event);          // 非 function_call 事件返回 null
+if (call) {
+  const out = await functionRouter.handle(call);  // { callId, output, status }
+  ws.send(buildFunctionCallOutputEvent(out));     // 写回 → 再发 response.create
+}
+```
 
 ## 关键约束
 

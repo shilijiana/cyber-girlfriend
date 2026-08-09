@@ -38,7 +38,7 @@
 | 里程碑 | 目标 | 状态 | 说明 |
 |--------|------|------|------|
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
-| **M1** 核心骨架 | app 装配 + persona + brain + function-router | 🔄 进行中 | 文字链路全通（AP-01~06 ✅ + BR-01/03/04/05 ✅ + PS-01~04 ✅），BR-02 待做 |
+| **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 📋 待开工 | 语音链路打通 |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 完成，AV-02~04 待执行 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
@@ -55,7 +55,7 @@
 | 🥇 1 | **config** 配置中心 | P0 | 一切的地基，无依赖，所有模块都要用它 | ✅ CF-01/02 完成 |
 | 🥈 2 | **app** 应用壳 | P0 | Express 宿主，所有 API 的载体，挡住所有上层模块 | 🔄 AP-01~06 完成 |
 | 🥉 3 | **persona** 人设 | P0 | 赛博女友的"灵魂"，Orchestrator 依赖它注入人设 | 🔄 PS-01~04 完成 |
-| 4 | **brain** 大脑 | P0 | 复杂事务执行（Hermes 子进程），HermesPersonaProvider 依赖它 | 🔄 BR-01/03/04/05 完成，BR-02 待做 |
+| 4 | **brain** 大脑 | P0 | 复杂事务执行（Hermes 子进程），HermesPersonaProvider 依赖它 | ✅ BR-01~05 完成 |
 | 5 | **voice-shell** 语音壳 | P1 | 核心交互方式（语音问答），依赖 persona+brain 的 M1 链路 | 📋 待开工 |
 | 6 | **avatar** 数字人 | P1 | 差异化亮点（视觉形象），方案已确认（clip-matcher），依赖语音情绪事件 | 🔄 AV-01 完成 |
 | 7 | **client** 前端 | P2 | 所有能力的最终呈现，依赖 M1-M3 全部后端能力 | 📋 待开工 |
@@ -85,18 +85,18 @@ config → app → persona → brain → voice-shell → avatar → client
 
 ---
 
-## M1 · 核心骨架（📋 待开工）
+## M1 · 核心骨架（✅ 完成）
 
 > **目标**：文字链路先跑通——人设注入 + Hermes 调用 + 文本聊天 API，不碰语音。
 > **前置条件**：老板拍板剩余决策（见下方阻塞项）
 
-### 阻塞项（待老板拍板）
+### 阻塞项（✅ 已全部拍板）
 
-| 决策 | 选项 | 默认建议 |
+| 决策 | 选项 | 最终拍板 |
 |------|------|----------|
-| 中转路径 | A. Function Calling（推荐） / B. 手动文本注入 | A |
-| Hermes 后端模型 | DeepSeek / OpenAI / 本地 Ollama | DeepSeek |
-| 小呆人设内容 | 角色卡具体字段值 | 老板定 |
+| 中转路径 | A. Function Calling（推荐） / B. 手动文本注入 | A（BR-02 function-router 已交付） |
+| Hermes 后端模型 | DeepSeek / OpenAI / 本地 Ollama | DeepSeek（deepseek-v4-flash） |
+| 小呆人设内容 | 角色卡具体字段值 | 老板定（HM-02 角色卡已落盘） |
 | 走 Hermes 的判定规则 | 哪些请求触发 function_call | 人设 post_history_instructions 引导 |
 
 ---
@@ -131,7 +131,7 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底（优化：加 `--profile cyber-girlfriend -t terminal,file,web`） |
-| BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 hermes-runner → function_call_output 写回 |
+| BR-02 | function-router.ts 实现 | P0 | ✅ | BR-01, AP-02 | 拦截 function_call → 调 hermes-runner → function_call_output 写回（`brain/function-router.ts` 已交付：tsc 零错误，冒烟 12/12 通过，真实 Hermes `1+1=?` → `2` 耗时 8.1s，2026-08-09 实测） |
 | BR-03 | Hermes 可用性探测 | P1 | ✅ | BR-01 | `/api/brain/status` 返回 Hermes 版本与可用性（app/server/routes.ts 已实现，2026-08-09 实测 `{available:true, version:"Hermes Agent v0.20.0"}`） |
 | BR-04 | 超时与错误处理 | P1 | ✅ | BR-01 | 超时返回友好提示，Hermes 不可用时降级为纯 Qwen 答复（orchestrator 已实现降级：`（大脑开小差了：...稍后再试试？）`） |
 | BR-05 | 工具集白名单 + AGENTS.md 安全层 | P0 | ✅ | BR-01 | runner 已加 `--profile cyber-girlfriend -t terminal,file,web`（config.hermes.profile/toolsets）；AGENTS.md 行为守则已产出（HM-01，2026-08-09） |
