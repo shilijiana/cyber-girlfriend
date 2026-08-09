@@ -23,7 +23,7 @@
 
 ### 阻塞 / 下一步
 - M5-01 性能项待老板定路线（ACP 已暂缓）；CC-01/02 审查审计待 M5 末
-- 远端同步（origin push）未执行——upstream gone，是否推送 / 换远端待老板确认
+- **远端同步已完成（老板指示推送）**：`git push origin main` + `v0.1.0` tag 推送成功；upstream 恢复（手动补 refs/remotes/origin/main，git 沙箱下 update-ref 静默失败）；本地=远端 HEAD c837ddf 一致
 
 ---
 
