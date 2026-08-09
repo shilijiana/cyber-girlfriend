@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-08-09（任务进度全面同步：CF-02/BR-04/BR-05/PS-04 补标完成）
+
+### 做了什么
+- 老板要求"更新所有文档，特别是任务进度部分"→ 全面核查实际产出 vs 看板状态，修正 4 项遗漏：
+  - **CF-02** ✅（.gitignore 早已含 apikeys 忽略）
+  - **BR-04** ✅（orchestrator 已实现超时降级："大脑开小差了...稍后再试试"）
+  - **BR-05** ✅（runner 已加 `--profile cyber-girlfriend -t terminal,file,web` + AGENTS.md 已产出）
+  - **PS-04** ✅（HM-03 记忆模板已产出）
+- M1 里程碑状态更新：**文字链路全通**（AP-01~06 + BR-01/03/04/05 + PS-01~04 全部 ✅），仅剩 BR-02
+- 模块排名表同步（config/app/persona/brain 状态更新）
+
+### 决策
+- 任务状态以"实际产出 + 实测"为准，看板同步修正
+- M1 唯一剩余：BR-02 function-router（依赖 BR-01 ✅ + AP-02 ✅，可开工）
+
+### 阻塞 / 下一步
+- **M1 收官：BR-02 function-router**（可派）
+- **M2 语音链路：VS-01**（依赖 PS-02 ✅ + API Key）
+- **M3 数字人：AV-02 manifest.json**（无依赖，可派）
+- CC-01/CC-02 待老板让 Claude Code 执行
+
+---
+
 ## 2026-08-09（CC 模块建立：代码审查/依赖审计转 Claude Code）
 
 ### 做了什么

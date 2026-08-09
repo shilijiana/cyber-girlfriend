@@ -162,7 +162,7 @@ M5:  联调收尾
 | PS-01 | PersonaProvider 接口定义 | P0 | ✅ | - | `PersonaProvider` + `Persona`/`PersonaInfo` 类型定义完成 |
 | PS-02 | FilePersonaProvider 实现 | P0 | ✅ | PS-01 | 直读 personas 文件：毫秒级切换（写 active.txt），人设确定性 100%（`persona/file-persona-provider.ts` 已交付） |
 | PS-03 | 人设切换 API | P2 | 📋 | PS-02 | `POST /api/persona/switch` 切换活跃人设，无需重启 |
-| PS-04 | 人设分区记忆维护 | P1 | 📋 | PS-02 | memory.md 收尾指令模板：新事实追加 + 超限压缩；全局事实写 MEMORY.md |
+| PS-04 | 人设分区记忆维护 | P1 | ✅ | PS-02 | memory.md 收尾指令模板：新事实追加 + 超限压缩；全局事实写 MEMORY.md（产出 `docs/hm-03-memory-template.md`） |
 
 ---
 
@@ -190,8 +190,8 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底（优化：加 `--profile cyber-girlfriend -t terminal,file,web`） |
 | BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 runner → function_call_output 写回 |
 | BR-03 | Hermes 可用性探测 | P1 | ✅ | BR-01 | `/api/brain/status` 返回版本与可用性（routes.ts 已实现，实测 `{available:true, version:"Hermes Agent v0.20.0"}`） |
-| BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时友好提示；Hermes 不可用降级纯 Qwen（brain 失败降级已在 orchestrator 实现） |
-| BR-05 | 工具集白名单 + AGENTS.md 安全层 | P0 | 📋 | BR-01 | runner 固定 `-t terminal,file,web`；后端工作目录放 AGENTS.md 行为守则（Hermes 评估 §3.4） |
+| BR-04 | 超时与错误处理 | P1 | ✅ | BR-01 | 超时友好提示；Hermes 不可用降级纯 Qwen（orchestrator 已实现降级） |
+| BR-05 | 工具集白名单 + AGENTS.md 安全层 | P0 | ✅ | BR-01 | runner 已加 `--profile cyber-girlfriend -t terminal,file,web`；AGENTS.md 已产出（HM-01） |
 
 > 📌 **BR-01 实现规格**：`brain/hermes-runner-spec.md`（接口定义 + 实测 Hermes 参数 + 参考骨架 + 验收自检表，实测 `hermes -z "1+1=?"` → `2。`）
 
