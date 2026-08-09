@@ -82,7 +82,7 @@ Express 后端（Core Orchestrator，自研 ~400 行）
 | Hermes 功能实现方法 | `docs/hermes-integration-spec.md`（给 Hermes agent 评估用） |
 | Hermes 记忆维护模板 | `docs/hm-03-memory-template.md`（HM-03 产出） |
 | 异步派活参考 | `docs/kanban-usage.md`（Hermes kanban 用法） |
-| Claude Code 任务卡 | `docs/tasks/CC-01-code-review.md`、`docs/tasks/CC-02-dependency-audit.md` |
+| Claude Code 审查配套 | 说明：`docs/reviews/CC-01_说明文档.md`、`docs/reviews/CC-02_说明文档.md`；反馈：`docs/reviews/CC-01_反馈文档.md`、`docs/reviews/CC-02_反馈文档.md` |
 | 备选方案对比 | `docs/research/Qwen3-Omni-调研笔记.md`、`docs/research/豆包Seeduplex-调研报告.md` |
 | 当前任务与进度 | `docs/TASKS.md` |
 | 开发日志 | `docs/DEVLOG.md` |

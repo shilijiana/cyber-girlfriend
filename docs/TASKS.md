@@ -156,14 +156,13 @@ config → app → persona → brain → voice-shell → avatar → client
 ### Claude Code 执行者（CC）—— 深度分析类任务
 
 > **模块说明**：CC = Claude Code 作为独立执行者承接的**深度分析类任务**（代码审查/依赖审计），老板 2026-08-09 明确：这类任务非 Hermes 长处，由 Claude Code 执行。
-> **执行方式**：老板把任务文档（`docs/tasks/CC-XX-*.md`）交给 Claude Code，它直接按文档执行（自包含，无需翻阅其他文档）。
-> **任务文档**：`docs/tasks/CC-01-code-review.md`（代码审查）、`docs/tasks/CC-02-dependency-audit.md`（依赖审计）
-> **⏰ 执行时机**：老板 2026-08-09 拍板——**最后再做**（M5 联调收尾阶段执行，此时代码量完整、审查价值最大化）
+> **执行方式**：老板把**说明文档**（`docs/reviews/CC-01_说明文档.md` / `CC-02_说明文档.md`）交给 Claude Code，它直接按文档执行（自包含，无需额外解释）；完成后填写**反馈文档**（`CC-01_反馈文档.md` / `CC-02_反馈文档.md`）。
+> **⏰ 执行时机**：老板 2026-08-09 拍板——**最后再做**（M5 阶段；M5-02~05 已完成，v0.1.0 已发布，现在正是执行时机）
 
-| ID | 任务 | 优先级 | 状态 | 验收标准 | 任务文档 |
+| ID | 任务 | 优先级 | 状态 | 验收标准 | 配套文档 |
 |----|------|--------|------|----------|----------|
-| CC-01 | 已交付代码审查 | P1 | ⏸ 延后 | 审查 BR-01/PS-02/AV-01/AP-02/AP-03 代码，输出审查报告（bug/边界/安全/规范/建议）（M5 阶段执行） | `docs/tasks/CC-01-code-review.md` |
-| CC-02 | 依赖与安全审计 | P1 | ⏸ 延后 | 审查 package.json 最小化 + tsconfig + npm audit 漏洞 + 建议，输出审计报告（M5 阶段执行） | `docs/tasks/CC-02-dependency-audit.md` |
+| CC-01 | 已交付代码审查 | P1 | 📋 文档就绪 | 审查全部 36 个核心文件，报告含分级问题+合规检查+契约对照 | 说明 `docs/reviews/CC-01_说明文档.md` + 反馈 `docs/reviews/CC-01_反馈文档.md` |
+| CC-02 | 依赖与安全审计 | P1 | 📋 文档就绪 | 依赖清单分析 + npm audit + 配置/密钥检查 + 建议 | 说明 `docs/reviews/CC-02_说明文档.md` + 反馈 `docs/reviews/CC-02_反馈文档.md` |
 
 ---
 
