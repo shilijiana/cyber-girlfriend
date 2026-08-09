@@ -241,7 +241,7 @@ config → app → persona → brain → voice-shell → avatar → client
 |----|------|--------|------|------|----------|
 | M5-01 | 端到端联调 | P0 | 🔄 | M1-M4 | 快问快答 <1s / 复杂事务 1.5-6s / 数字人联动（2026-08-09 联调实测：链路全通，**性能未达标**——快问快答 20.6-39.4s、复杂事务 28.5s，瓶颈 Hermes 冷启动（hermes -z 子进程 12-23s）；数字人联动 ✅。**老板 2026-08-09 拍板：ACP 常驻方案暂缓**（P1 延后），性能优化路线待定；详见 DEVLOG） |
 | M5-02 | 错误处理与降级 | P1 | ✅ | M5-01 | Hermes 不可用→纯 Qwen / 素材缺失→Live2D 兜底 |
-| M5-03 | Git 初始化与首次提交 | P1 | 📋 | M5-01 | git init + .gitignore + Conventional Commits + Tag |
+| M5-03 | Git 初始化与首次提交 | P1 | ✅ | M5-01 | git init + .gitignore + Conventional Commits + Tag（2026-08-09 验收：git init ✅ 历史提交沿用；.gitignore ✅ 依赖/密钥/素材/临时产物全覆盖；Conventional Commits ✅ M5-02 feat + M5 文档 docs 两笔入库；Tag ✅ v0.1.0 annotated；工作区干净，M5 全量改动入库） |
 | M5-04 | README 完善 | P2 | ✅ | M5-01 | 项目 README：启动/配置/架构概览（`README.md` 已交付：项目简介 + 核心特性 + 架构概览（两条核心路径）+ 快速开始（环境要求/安装/配置/启动/快速验证 curl）+ 项目结构 + 自检测试命令 + 设计红线 + 文档索引；命令与自检脚本逐一实测通过） |
 | M5-05 | .env.example 完善 | P1 | ✅ | AP-06 | 所有环境变量有示例与说明（14 个变量全注释，含用途/默认值；补齐 HERMES_PROFILE/PERSONAS_DIR/TOOLSETS；loader 补 DASHSCOPE_REGION/MODEL 透传；交叉校验通过 + tsc 零错误） |
 

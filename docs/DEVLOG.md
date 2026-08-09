@@ -5,6 +5,28 @@
 
 ---
 
+## 2026-08-09（M5-03 完成：Git 初始化与首次提交 ✅）
+
+### 做了什么
+- **M5-03 Git 初始化与首次提交（P1，✅）**：
+  - **git init ✅**：仓库已存在（历史提交沿用，无需重建）；`main` 分支跟踪 `origin/main`（远端 upstream gone，未 push 状态）
+  - **.gitignore ✅**：依赖/构建（node_modules/dist）、密钥（apikeys.json/.env）、素材大文件（assets/avatars/* 例外 manifest.json）、日志/测试产物/临时脚本、编辑器文件全覆盖
+  - **Conventional Commits ✅**：M5 全量改动拆两笔入库——
+    - `bffeda0 feat(brain): M5-02 完成 - Hermes 不可用降级纯 Qwen 通道`（qwen-fallback + orchestrator 接入 + 契约 v1.13 + 自检 15/15/12/12）
+    - `a758b3c docs: M5 联调记录 + README + env 完善（M5-01/04/05 同步入库）`
+  - **Tag ✅**：`v0.1.0`（annotated，M5 联调收尾节点）
+- **验收**：`git status` 工作区干净；`git tag` 输出 v0.1.0；最近三笔提交 M4→M5-02→M5 文档 顺序清晰
+
+### 决策
+- 未提交的 M5-01/02/04/05 产物（并行会话已完成）随本次一并入库，避免工作区悬挂
+- Tag 命名 v0.1.0 对齐 package.json version
+
+### 阻塞 / 下一步
+- M5-01 性能项待老板定路线（ACP 已暂缓）；CC-01/02 审查审计待 M5 末
+- 远端同步（origin push）未执行——upstream gone，是否推送 / 换远端待老板确认
+
+---
+
 ## 2026-08-09（M5-04 README 完善：项目 README 交付 ✅）
 
 ### 做了什么
