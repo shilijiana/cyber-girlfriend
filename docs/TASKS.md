@@ -39,7 +39,7 @@
 |--------|------|------|------|
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
 | **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
-| **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 🔄 进行中 | **VS-01 完成（实测 7/7 通过）**；VS-02 规格就绪（依赖 VS-01）；VS-03~06 + AP-05 验收标准已细化 |
+| **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 🔄 进行中 | **VS-01 完成（实测 7/7）+ VS-02 完成（单测 21/21 + 实测 5/5）**；VS-03~06 + AP-05 待执行 |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 完成，AV-02~04 待执行 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
 | **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成 |
@@ -176,7 +176,7 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | VS-01 | Qwen-Audio Realtime WS 客户端 | P0 | ✅ | PS-02, API Key | 连接 `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash`，session.update 注入 instructions（`voice-shell/qwen-audio-client.ts` + `provider.ts` 已交付，实测 7/7 通过：连接/注入/音频上下行/字幕/断线重连） |
-| VS-02 | 语音网关 gateway.ts | P0 | 📋 | VS-01 | `/ws/voice` 中继：上行 PCM 16k → Qwen，下行 PCM 24k → 浏览器（规格 `docs/tasks/VS-02-gateway.md`） |
+| VS-02 | 语音网关 gateway.ts | P0 | ✅ | VS-01 | `/ws/voice` 中继：上行 PCM 16k → Qwen，下行 PCM 24k → 浏览器（`voice-shell/gateway.ts` 已交付，mock 单测 21/21 + 真实端到端 5/5 通过，含 ready/audio/subtitle/emotion/function_call 透传/状态机/断开清理） |
 | VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频流 → 播放；副文本 → 字幕；情绪事件 → 数字人触发（spec 见 VS-02 §3） |
 | VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，用户说话自动打断 AI（session 配 `turn_detection:{type:'server_vad'}`，VS-01 已默认配置） |
 | VS-05 | 输入转写 | P2 | 📋 | VS-01 | `input_audio_transcription:{enabled:true,model:'fun-asr'}`（VS-01 已默认开启），用户语音转文字回调透传（VS-05 实现） |

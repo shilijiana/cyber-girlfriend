@@ -5,6 +5,26 @@
 
 ---
 
+## 2026-08-09（VS-02 语音网关完成，单测 21/21 + 实测 5/5）
+
+### 做了什么
+- 执行 VS-02（voice-shell P0）：交付 `voice-shell/gateway.ts` —— 浏览器 ↔ Qwen 双向音频中继（AP-05 挂载点调用的处理逻辑）
+- 网关能力：上行 PCM16k（base64 JSON + 二进制帧双兼容）→ Qwen；下行 PCM24k → 浏览器；subtitle/emotion 双路分发（浏览器 + deps 回调）；function_call 只透传不执行（红线 6，VS-06 经 `onSessionCreated` 挂载点接入）；状态机 connected/speaking/idle（停声 1.5s 回退）；`{type:'start'/'interrupt'/'close'}` 消息处理；断开/异常清理（幂等，Qwen session.close 无残留）；provider 失败兜底（error 事件 + 1011 关闭）
+- 接口对齐规格 §3：`VoiceGatewayDeps` / `VoiceGateway.handleConnection` / `createVoiceGateway`；BrowserSocket 用 duck-typing 最小接口（ws 库实例天然满足，测试可 mock）
+- 配套：新增 `ws` + `@types/ws` 依赖（红线 5 允许，纯 JS）；tsconfig include 纳入 voice-shell；修复 VS-01 遗留类型问题（Node 22 全局 WebSocket 的 `{headers}` 构造参数，undici 支持但 @types/node 未覆盖，运行时行为不变）
+- 验收：`gateway-unit-test.ts` mock 单测 **21/21 通过**（中继/上下行/事件透传/状态机/清理/错误兜底）；`gateway-smoke-test.ts` 真实端到端 **5/5 通过**（本地 WS → gateway → Qwen，收到 PCM24k 19200 字节 + 字幕"我是小呆，18 岁的 AI 少女…"全链路）
+
+### 决策
+- **BrowserSocket duck-typing**：不直接依赖 ws 类型，AP-05 挂载与测试 mock 都无耦合
+- **onSessionCreated 扩展点**：规格接口基础上新增回调（透传 session + sendToBrowser），VS-06 在此挂 function_call 写回 / brain 状态上报，gateway 本身不执行
+- **协议双兼容**：契约 §2.1（二进制音频 + start）与规格 §4（base64 JSON）并存，实现都支持
+
+### 阻塞 / 下一步
+- 派 VS-06（Function Calling 注册，依赖齐）+ AP-05（WS 挂载，gateway 已就绪）；VS-03/04 分发可跟进
+- AV-02（M3）无依赖可并行
+
+---
+
 ## 2026-08-09（VS-01 Qwen-Audio WS 客户端完成，实测 7/7）
 
 ### 做了什么

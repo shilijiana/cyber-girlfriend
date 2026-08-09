@@ -11,5 +11,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"]
   },
-  "include": ["app", "avatar", "brain", "config", "persona"]
+  "include": ["app", "avatar", "brain", "config", "persona", "voice-shell"]
 }

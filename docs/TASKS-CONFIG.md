@@ -46,7 +46,7 @@
 | **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01/02/03/04/06 完成 |
 | **persona** | PS | 人设文件化（v1.3）：PersonaProvider + FilePersonaProvider + 分区记忆 | 🔄 PS-01/02/03 完成 |
 | **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | ✅ BR-01~05 完成 |
-| **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 📋 待执行 |
+| **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 🔄 VS-01/02 完成 |
 | **avatar** | AV | 数字人：素材匹配引擎（AV-01 完成） | 🔄 AV-01 完成 |
 | **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
 | **docs** | DC | 文档体系：三文档工作流（本文件属于此模块） | ✅ 完成 |
@@ -212,7 +212,7 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | VS-01 | Qwen-Audio WS 客户端 | P0 | 🔄 | PS-02, Key | 连接 realtime WS，session.update 注入 instructions（详细规格见 `docs/tasks/VS-01-qwen-audio-client.md`） |
-| VS-02 | 语音网关 gateway.ts | P0 | 📋 | VS-01 | `/ws/voice` 中继：上行 PCM16k → Qwen，下行 PCM24k → 浏览器（规格 `docs/tasks/VS-02-gateway.md`） |
+| VS-02 | 语音网关 gateway.ts | P0 | ✅ | VS-01 | `/ws/voice` 中继：上行 PCM16k → Qwen，下行 PCM24k → 浏览器（`voice-shell/gateway.ts` 已交付，mock 单测 21/21 + 真实端到端 5/5 通过） |
 | VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频→播放；副文本→字幕；情绪→数字人（spec 见 VS-02） |
 | VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，说话自动打断（session 配 `turn_detection: {type:'server_vad'}`） |
 | VS-05 | 输入转写 | P2 | 📋 | VS-01 | `enableInputAudioTranscription: true`，用户语音转文字回调 |

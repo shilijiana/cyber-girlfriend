@@ -190,7 +190,12 @@ class QwenAudioSessionImpl implements VoiceSession {
 
     let ws: WebSocket;
     try {
-      ws = new WebSocket(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+      // Node 22 全局 WebSocket 基于 undici，支持 { headers } 初始化选项（@types/node
+      // 类型签名未覆盖，运行时有效，实测鉴权通过）；此处仅做类型收窄，行为不变。
+      ws = new WebSocket(
+        url,
+        { headers: { Authorization: `Bearer ${apiKey}` } } as unknown as string[],
+      );
     } catch (e) {
       this.log('error', 'WebSocket 构造失败', { error: String(e) });
       this.connecting = false;
