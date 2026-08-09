@@ -44,9 +44,9 @@
 |------|------|-----------|------|
 | **config** | CF | 配置中心：密钥集中管理（文件优先、环境变量兜底） | ✅ 完成 |
 | **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01/02/03/04/06 完成 |
-| **persona** | PS | 人设文件化（v1.3）：PersonaProvider + FilePersonaProvider + 分区记忆 | 🔄 PS-01/02/03 完成 |
+| **persona** | PS | 人设文件化（v1.3）：PersonaProvider + FilePersonaProvider + 分区记忆 | ✅ PS-01~04 完成 |
 | **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | ✅ BR-01~05 完成 |
-| **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 🔄 VS-01/02 完成 |
+| **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 🔄 VS-01~06 全部完成，AP-05 待挂载 |
 | **avatar** | AV | 数字人：素材匹配引擎（AV-01 完成） | 🔄 AV-01 完成 |
 | **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
 | **docs** | DC | 文档体系：三文档工作流（本文件属于此模块） | ✅ 完成 |
@@ -202,7 +202,7 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | 项 | 内容 |
 |----|------|
-| **执行入口** | `voice-shell/qwen-audio-client.ts`、`voice-shell/gateway.ts` |
+| **执行入口** | `voice-shell/qwen-audio-client.ts`、`voice-shell/gateway.ts`、`voice-shell/dispatcher.ts`（VS-03 双路分发器）、`voice-shell/function-calling.ts`（VS-06 装配层） |
 | **输入参数** | WS 消息 `{type:'start'/'audio'/'interrupt'}`；PCM 16kHz 上行音频 |
 | **预期输出** | WS 下行 `{type:'audio'/'subtitle'/'emotion'/'brain'/'error'}`；PCM 24kHz 音频 |
 | **📌 连接实测（2026-08-09）** | WS URL `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash`，Header `Authorization: Bearer <Key>` 鉴权；实测连接成功 → `session.created`（session_id 返回）→ `session.update`（人设注入）被接受；API Key 已写入 `config/apikeys.json`（gitignore） |
@@ -213,10 +213,10 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 |----|------|--------|------|------|----------|
 | VS-01 | Qwen-Audio WS 客户端 | P0 | 🔄 | PS-02, Key | 连接 realtime WS，session.update 注入 instructions（详细规格见 `docs/tasks/VS-01-qwen-audio-client.md`） |
 | VS-02 | 语音网关 gateway.ts | P0 | ✅ | VS-01 | `/ws/voice` 中继：上行 PCM16k → Qwen，下行 PCM24k → 浏览器（`voice-shell/gateway.ts` 已交付，mock 单测 21/21 + 真实端到端 5/5 通过） |
-| VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频→播放；副文本→字幕；情绪→数字人（spec 见 VS-02） |
-| VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，说话自动打断（session 配 `turn_detection: {type:'server_vad'}`） |
-| VS-05 | 输入转写 | P2 | 📋 | VS-01 | `enableInputAudioTranscription: true`，用户语音转文字回调 |
-| VS-06 | Function Calling 注册 | P0 | 📋 | BR-02, VS-01 | 用 BR-02 `hermesBrainTool` schema 注册 `hermes_brain`；function_call 事件 → `extractFunctionCall` → router.handle → `buildFunctionCallOutputEvent` 写回 |
+| VS-03 | 双路分发 | P1 | ✅ | VS-02 | 音频→播放；副文本→字幕；情绪→数字人（`voice-shell/dispatcher.ts` 双路分发器已交付：bind 绑定会话事件源 → 多路消费者广播（audio/subtitle/emotion/vadState/functionCall），错误隔离 + 退订幂等 + dispose 可复用 + 重绑防泄漏；gateway 双路（浏览器+deps）统一走分发器；契约 v1.6 §2.9；单测 17/17，gateway 回归 26/26，tsc 零错误） |
+| VS-04 | VAD 与打断 | P1 | ✅ | VS-02 | server_vad 模式，说话自动打断（session 配 `turn_detection:{type:'server_vad'}`；`onVadState` 回调：speech_started/stopped 归一化，gateway 状态机含 `listening` 态，VAD true → 浏览器 status listening；契约 v1.8 §2.1/§2.2/§2.9；规格见 `docs/tasks/VS-04-vad-interrupt.md`；单测 8/8 + gateway 回归 26/26，tsc 零错误） |
+| VS-05 | 输入转写 | P2 | ✅ | VS-01 | `input_audio_transcription:{enabled:true,model:'fun-asr'}`（VS-01 已默认开启），用户语音转文字回调透传（onInputTranscript：delta 增量 / completed 最终，gateway 透传 `user_transcript`，单测 7/7 + 24/24，tsc 零错误） |
+| VS-06 | Function Calling 注册 | P0 | ✅ | BR-02, VS-01 | 用 BR-02 `hermesBrainTool` schema 注册 `hermes_brain`；function_call 事件 → `extractFunctionCall` → router.handle → `buildFunctionCallOutputEvent` 写回（`voice-shell/function-calling.ts` 装配层已交付：tools 注册 + onFunctionCall 拦截 + sendFunctionCallOutput 写回 + brain 状态上报；契约 v1.7 §2.8；单测 15/15，tsc 零错误） |
 
 ---
 

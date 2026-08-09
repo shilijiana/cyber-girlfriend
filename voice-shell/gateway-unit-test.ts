@@ -8,6 +8,7 @@
  *   4. 事件透传：subtitle/emotion → 浏览器 + deps 回调；function_call → 只透传不执行
  *   5. 断开清理：{type:'close'} 消息 / 浏览器断开 → session.close() 且无残留
  *   6. 错误兜底：provider 连接失败 → 浏览器收到 {type:'error'} + 连接关闭
+ *   7.（VS-04）VAD 状态机：speech_started → 浏览器 status listening；speech_stopped → 回 connected
  *
  * 运行：node --experimental-strip-types voice-shell/gateway-unit-test.ts
  */
@@ -38,6 +39,8 @@ class MockSession implements VoiceSession {
     subtitle?: (t: string) => void;
     emotion?: (e: Emotion) => void;
     functionCall?: (c: FunctionCall) => void;
+    inputTranscript?: (t: string, info: { delta: boolean }) => void;
+    vadState?: (speaking: boolean) => void;
   } = {};
 
   sendAudio(chunk: Buffer): void {
@@ -54,6 +57,15 @@ class MockSession implements VoiceSession {
   }
   onFunctionCall(cb: (c: FunctionCall) => void): void {
     this.cbs.functionCall = cb;
+  }
+  onInputTranscript(cb: (t: string, info: { delta: boolean }) => void): void {
+    this.cbs.inputTranscript = cb;
+  }
+  onVadState(cb: (speaking: boolean) => void): void {
+    this.cbs.vadState = cb;
+  }
+  sendFunctionCallOutput(): void {
+    // VS-06：gateway 不执行 function_call（只透传），本 mock 无需记录
   }
   injectAssistantText(): void {
     this.injectCalls += 1;
@@ -76,6 +88,12 @@ class MockSession implements VoiceSession {
   }
   triggerFunctionCall(c: FunctionCall): void {
     this.cbs.functionCall?.(c);
+  }
+  triggerInputTranscript(t: string, info: { delta: boolean }): void {
+    this.cbs.inputTranscript?.(t, info);
+  }
+  triggerVadState(speaking: boolean): void {
+    this.cbs.vadState?.(speaking);
   }
 }
 
@@ -154,6 +172,7 @@ async function main(): Promise<void> {
   const subtitleCb: string[] = [];
   const emotionCb: Emotion[] = [];
   const funcCb: FunctionCall[] = [];
+  const transcriptCb: { text: string; delta: boolean }[] = [];
   let sessionCreated = 0;
 
   const socket = new MockSocket();
@@ -162,6 +181,7 @@ async function main(): Promise<void> {
     onSubtitle: (t) => subtitleCb.push(t),
     onEmotion: (e) => emotionCb.push(e),
     onFunctionCall: (c) => funcCb.push(c),
+    onInputTranscript: (t, info) => transcriptCb.push({ text: t, delta: info.delta }),
     onSessionCreated: () => {
       sessionCreated += 1;
     },
@@ -220,6 +240,20 @@ async function main(): Promise<void> {
     socket.parsed().some((m) => m.type === 'status' && m.state === 'idle'),
   );
 
+  // ⑦（VS-04）VAD 状态机：speech_started → listening；speech_stopped → connected
+  session.triggerVadState(true);
+  msgs = socket.parsed();
+  check(
+    '⑦ VAD 开始说话 → 浏览器 status listening',
+    msgs.some((m) => m.type === 'status' && m.state === 'listening'),
+  );
+  session.triggerVadState(false);
+  msgs = socket.parsed();
+  check(
+    '⑦ VAD 语音结束 → 状态回 connected（等 AI 响应）',
+    msgs.some((m) => m.type === 'status' && m.state === 'connected'),
+  );
+
   // ④ 事件透传
   session.triggerSubtitle('你好呀，我是小呆');
   msgs = socket.parsed();
@@ -237,6 +271,22 @@ async function main(): Promise<void> {
   const call: FunctionCall = { callId: 'call_1', name: 'hermes_brain', arguments: { instruction: '测试' } };
   session.triggerFunctionCall(call);
   check('④ function_call 只透传（不执行）', funcCb.length === 1 && funcCb[0] === call);
+
+  // ④ VS-05 输入转写透传：增量 + 最终 → 浏览器 user_transcript + deps 回调
+  session.triggerInputTranscript('你', { delta: true });
+  session.triggerInputTranscript('你好', { delta: true });
+  session.triggerInputTranscript('你好呀老板', { delta: false });
+  msgs = socket.parsed();
+  const tMsgs = msgs.filter((m) => m.type === 'user_transcript');
+  check(
+    '④ 转写增量 → 浏览器 user_transcript(delta=true)',
+    tMsgs.length === 3 && tMsgs.filter((m) => m.delta === true).length === 2,
+  );
+  check(
+    '④ 转写最终 → 浏览器 user_transcript(delta=false, 完整文本)',
+    tMsgs.some((m) => m.delta === false && m.text === '你好呀老板'),
+  );
+  check('④ 转写 → deps.onInputTranscript', transcriptCb.length === 3 && transcriptCb.at(-1)?.text === '你好呀老板');
 
   // ⑤ interrupt 消息
   socket.emitMessage({ type: 'interrupt' });

@@ -4,9 +4,16 @@
  * 职责：Qwen-Audio-3.0-Realtime-Flash WebSocket 客户端——连接、人设注入、
  *   音频收发、事件分发（字幕/情绪/function_call）、断线重连。供 VS-02 gateway 使用。
  *
- * 契约对齐：docs/architecture/module-contracts.md §2.2（VoiceProvider，v1.2）
+ * 契约对齐：docs/architecture/module-contracts.md §2.2（VoiceProvider，v1.8）
  * 协议参考：Qwen-Audio Realtime WebSocket API（help.aliyun.com/zh/model-studio/fun-audiochat-realtime-websocket-api）
  *   实测（2026-08-09）：连接成功 → session.created → session.update 被接受
+ *
+ * VS-04 VAD 与打断（server_vad 模式）：
+ *   - session.update 默认配 turn_detection:{type:'server_vad', threshold, silence_duration_ms}
+ *   - 服务端 VAD 检测用户语音起止 → 下行 input_audio_buffer.speech_started / speech_stopped
+ *   - 打断语义（官方文档）：模型播报期间 VAD 检测到用户开始说话 → 服务端自动取消当前响应
+ *     （response.done status=cancelled），客户端无需主动 response.cancel，只需把 VAD 状态
+ *     归一化为 onVadState(speaking:boolean) 透传给上层（前端切 listening 态）。
  *
  * 关键设计：
  *   - 依赖最小化（红线 5）：Node 22 原生全局 WebSocket，零第三方依赖
@@ -17,7 +24,12 @@
  *   - 心跳：activity 超时探测（服务端无事件超时 → 主动断开触发重连），防半死连接
  */
 
-import { extractFunctionCall, type FunctionCall } from '../brain/function-router.ts';
+import {
+  extractFunctionCall,
+  buildFunctionCallOutputEvent,
+  type FunctionCall,
+  type FunctionCallOutput,
+} from '../brain/function-router.ts';
 import type { Emotion } from '../avatar/clip-matcher.ts';
 import { config, maskKey } from '../config/loader.ts';
 import type { VoiceProvider, VoiceSession } from './provider.ts';
@@ -71,6 +83,10 @@ interface SessionCallbacks {
   subtitle?: (text: string) => void;
   emotion?: (e: Emotion) => void;
   functionCall?: (call: FunctionCall) => void;
+  /** 用户语音输入转写（VS-05）：delta=true 增量 / false 最终完整转写 */
+  inputTranscript?: (text: string, info: { delta: boolean }) => void;
+  /** VAD 状态（VS-04）：speech_started → true / speech_stopped → false */
+  vadState?: (speaking: boolean) => void;
 }
 
 /** 有效情绪集合（Emotion 白名单，协议值不在其中归一化为 neutral） */
@@ -331,7 +347,26 @@ class QwenAudioSessionImpl implements VoiceSession {
         this.callbacks.emotion?.(normalizeEmotion(e.emotion));
         break;
       case 'conversation.item.input_audio_transcription.delta':
+        // VS-05：用户语音转写增量（delta=true）+ 内嵌情绪提取（协议无独立 emotion 事件，双兼容）
+        if (typeof e.delta === 'string' && e.delta.length > 0) {
+          this.callbacks.inputTranscript?.(e.delta, { delta: true });
+        }
         if (e.emotion !== undefined) this.callbacks.emotion?.(normalizeEmotion(e.emotion));
+        break;
+      case 'conversation.item.input_audio_transcription.completed':
+        // VS-05：用户语音转写最终结果（delta=false，item 结束时下发完整 transcript）
+        if (typeof e.transcript === 'string' && e.transcript.length > 0) {
+          this.callbacks.inputTranscript?.(e.transcript, { delta: false });
+        }
+        break;
+      // VS-04 VAD：服务端检测用户语音起止（server_vad / smart_turn 模式）
+      case 'input_audio_buffer.speech_started':
+        this.log('debug', 'VAD 检测到用户开始说话');
+        this.callbacks.vadState?.(true);
+        break;
+      case 'input_audio_buffer.speech_stopped':
+        this.log('debug', 'VAD 检测到用户语音结束', { reason: (ev as { reason?: unknown }).reason });
+        this.callbacks.vadState?.(false);
         break;
       case 'error': {
         const msg = e.error?.message ?? '未知错误';
@@ -415,6 +450,15 @@ class QwenAudioSessionImpl implements VoiceSession {
     this.callbacks.functionCall = cb;
   }
 
+  onInputTranscript(cb: (text: string, info: { delta: boolean }) => void): void {
+    this.callbacks.inputTranscript = cb;
+  }
+
+  /** VAD 状态回调（VS-04）：speech_started → true / speech_stopped → false */
+  onVadState(cb: (speaking: boolean) => void): void {
+    this.callbacks.vadState = cb;
+  }
+
   /** 注入文本让 Qwen 朗读（Hermes 结果）：插入用户消息 + 触发推理 */
   injectAssistantText(text: string): void {
     if (!text || !text.trim()) return;
@@ -426,6 +470,12 @@ class QwenAudioSessionImpl implements VoiceSession {
         content: [{ type: 'input_text', text: text.trim() }],
       },
     });
+    this.sendJson({ type: 'response.create', response: { modalities: ['audio', 'text'] } });
+  }
+
+  /** 写回 function_call_output（VS-06）：BR-02 构造事件 + 触发 Qwen 组织语音回复（契约 §2.8） */
+  sendFunctionCallOutput(out: FunctionCallOutput): void {
+    this.sendJson(buildFunctionCallOutputEvent(out));
     this.sendJson({ type: 'response.create', response: { modalities: ['audio', 'text'] } });
   }
 
@@ -446,6 +496,8 @@ class QwenAudioSessionImpl implements VoiceSession {
     this.callbacks.subtitle = undefined;
     this.callbacks.emotion = undefined;
     this.callbacks.functionCall = undefined;
+    this.callbacks.inputTranscript = undefined;
+    this.callbacks.vadState = undefined;
   }
 
   /** 断开底层 WS（不触发重连标记；close() 前置 closed=true） */

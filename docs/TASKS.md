@@ -39,7 +39,7 @@
 |--------|------|------|------|
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
 | **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
-| **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 🔄 进行中 | **VS-01 完成（实测 7/7）+ VS-02 完成（单测 21/21 + 实测 5/5）**；VS-03~06 + AP-05 待执行 |
+| **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 🔄 进行中 | **VS-01 ✅ + VS-02 ✅ + VS-03 ✅ + VS-04 ✅（VAD 8/8）+ VS-05 ✅ + VS-06 ✅**；AP-05 待执行 |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 完成，AV-02~04 待执行 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
 | **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成 |
@@ -177,10 +177,10 @@ config → app → persona → brain → voice-shell → avatar → client
 |----|------|--------|------|------|----------|
 | VS-01 | Qwen-Audio Realtime WS 客户端 | P0 | ✅ | PS-02, API Key | 连接 `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash`，session.update 注入 instructions（`voice-shell/qwen-audio-client.ts` + `provider.ts` 已交付，实测 7/7 通过：连接/注入/音频上下行/字幕/断线重连） |
 | VS-02 | 语音网关 gateway.ts | P0 | ✅ | VS-01 | `/ws/voice` 中继：上行 PCM 16k → Qwen，下行 PCM 24k → 浏览器（`voice-shell/gateway.ts` 已交付，mock 单测 21/21 + 真实端到端 5/5 通过，含 ready/audio/subtitle/emotion/function_call 透传/状态机/断开清理） |
-| VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频流 → 播放；副文本 → 字幕；情绪事件 → 数字人触发（spec 见 VS-02 §3） |
-| VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，用户说话自动打断 AI（session 配 `turn_detection:{type:'server_vad'}`，VS-01 已默认配置） |
-| VS-05 | 输入转写 | P2 | 📋 | VS-01 | `input_audio_transcription:{enabled:true,model:'fun-asr'}`（VS-01 已默认开启），用户语音转文字回调透传（VS-05 实现） |
-| VS-06 | Function Calling 注册 | P0 | 📋 | BR-02, VS-01 | 用 BR-02 `hermesBrainTool` schema 注册 `hermes_brain`；function_call → `extractFunctionCall` → router.handle → `buildFunctionCallOutputEvent` 写回（VS-01 已预留 tools 选项 + function_call 透传回调） |
+| VS-03 | 双路分发 | P1 | ✅ | VS-02 | 音频流 → 播放；副文本 → 字幕；情绪事件 → 数字人触发（`voice-shell/dispatcher.ts` 双路分发器已交付：bind 绑定会话事件源 → 多路消费者广播（audio/subtitle/emotion/vadState/functionCall），错误隔离 + 退订幂等 + dispose 可复用 + 重绑防泄漏；gateway 双路（浏览器+deps）统一走分发器；契约 v1.6 §2.9；单测 17/17，gateway 回归 26/26，tsc 零错误） |
+| VS-04 | VAD 与打断 | P1 | ✅ | VS-02 | server_vad 模式，用户说话自动打断 AI（session 配 `turn_detection:{type:'server_vad'}`；`voice-shell` 已交付：`onVadState` 回调（speech_started/stopped 归一化）+ dispatcher 广播 + gateway 状态机 `listening` 态（VAD true → 浏览器 status listening，false → connected）；打断由服务端自动取消响应，客户端只透传状态；契约 v1.8；规格 `docs/tasks/VS-04-vad-interrupt.md`；单测 8/8 + gateway 回归 26/26，tsc 零错误） |
+| VS-05 | 输入转写 | P2 | ✅ | VS-01 | `input_audio_transcription:{enabled:true,model:'fun-asr'}`（VS-01 已默认开启），用户语音转文字回调透传（`voice-shell/provider.ts` + `qwen-audio-client.ts` + `gateway.ts` 已交付：onInputTranscript 回调 + delta/completed 双事件 + 浏览器 `user_transcript` 透传；单测 7/7 + gateway 24/24，tsc 零错误） |
+| VS-06 | Function Calling 注册 | P0 | ✅ | BR-02, VS-01 | 用 BR-02 `hermesBrainTool` schema 注册 `hermes_brain`；function_call → `extractFunctionCall` → router.handle → `buildFunctionCallOutputEvent` 写回（`voice-shell/function-calling.ts` 装配层已交付：tools 注册 + onFunctionCall 拦截 + sendFunctionCallOutput 写回 + brain working/done/failed 状态上报；契约 v1.7 §2.8；单测 15/15 含 gateway 全链路，tsc 零错误） |
 
 ### app · 应用壳（M2 补充）
 

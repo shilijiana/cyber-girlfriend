@@ -9,6 +9,8 @@
 | `provider.ts` | VoiceProvider / VoiceSession 契约定义（对齐 module-contracts §2.2，VS-01） |
 | `qwen-audio-client.ts` | Qwen-Audio-3.0-Realtime-Flash WebSocket 客户端（会话管理、instructions 注入、事件转发、断线重连；VS-01 已交付，实测 7/7 通过） |
 | `gateway.ts` | `/ws/voice` 中继：浏览器 ↔ Qwen 双向音频流 + 双路分发（播放/字幕/数字人触发） |
+| `function-calling.ts` | Function Calling 装配层（VS-06）：注册 hermes_brain 工具 → 拦截 function_call → router.handle（Hermes 执行）→ sendFunctionCallOutput 写回 + brain 状态上报 |
+| `dispatcher.ts` | 双路分发器（VS-03）：VoiceSession 事件流按类型广播到多路消费者（音频/字幕/情绪/function_call） |
 | `smoke-test.ts` | VS-01 验收脚本：`node --experimental-strip-types voice-shell/smoke-test.ts`（真实调用，消耗 API 额度） |
 
 ## 关键约束

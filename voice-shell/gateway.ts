@@ -9,10 +9,11 @@
  *     上行 PCM 16kHz  ▶──────中继──────▶ 上行 PCM 16kHz（session.sendAudio）
  *     下行 PCM 24kHz  ◀──────中继──────◀ 下行 PCM 24kHz（onAudio 回调）
  *     副文本/情绪      ◀──────透传──────◀ subtitle / emotion 回调 → 浏览器 + deps 回调
+ *     VAD 状态         ◀──────透传──────◀ onVadState 回调 → 浏览器 status listening（VS-04）
  *     function_call    ◀──────透传──────◀ onFunctionCall 回调 → BR-02（VS-06 接入，本网关不执行）
  *
  * 契约对齐：docs/architecture/module-contracts.md §2.1（/ws/voice 协议）+ §2.2（VoiceProvider）
- * 规格依据：docs/tasks/VS-02-gateway.md（v1.0）
+ * 规格依据：docs/tasks/VS-02-gateway.md（v1.0）+ VS-04（VAD 与打断：server_vad 状态透传）
  *
  * 边界与红线：
  *   - 只做中继与分发，不写业务判断（红线 6：语音壳不碰业务）
@@ -25,6 +26,7 @@ import { randomUUID } from 'crypto';
 import type { Emotion } from '../avatar/clip-matcher.ts';
 import type { FunctionCall } from '../brain/function-router.ts';
 import type { VoiceProvider, VoiceSession } from './provider.ts';
+import { createVoiceDispatcher, type VoiceConsumer } from './dispatcher.ts';
 
 /** ws.OPEN 常量（ws 库与原生一致 = 1） */
 const WS_OPEN = 1;
@@ -60,6 +62,8 @@ export interface VoiceGatewayDeps {
   onEmotion?: (e: Emotion) => void;
   /** function_call 透传（→ BR-02，VS-06 接入；本网关只透传不执行） */
   onFunctionCall?: (call: FunctionCall) => void;
+  /** 用户语音转写透传（VS-05：delta=true 增量 / false 最终；供编排层/SSE 消费，与浏览器下行并存） */
+  onInputTranscript?: (text: string, info: { delta: boolean }) => void;
   /** 会话建立后回调（VS-06 在此注册 function_call 写回 / brain 状态上报） */
   onSessionCreated?: (ctx: VoiceGatewayContext) => void;
   /** 日志回调（默认 console） */
@@ -77,7 +81,7 @@ export interface VoiceGateway {
   handleConnection(browserWs: BrowserSocket, personaInstructions: string): Promise<void>;
 }
 
-type GatewayState = 'connected' | 'speaking' | 'idle';
+type GatewayState = 'connected' | 'speaking' | 'listening' | 'idle';
 
 /** 网关实现（不对外暴露，统一走 createVoiceGateway 工厂） */
 class VoiceGatewayImpl implements VoiceGateway {
@@ -107,6 +111,7 @@ class VoiceGatewayImpl implements VoiceGateway {
 
     let state: GatewayState = 'idle';
     let session: VoiceSession | null = null;
+    let dispatcher: ReturnType<typeof createVoiceDispatcher> | null = null;
     let closed = false;
     let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -152,6 +157,11 @@ class VoiceGatewayImpl implements VoiceGateway {
         await s.close().catch(() => undefined);
         log('info', 'Qwen 会话已关闭，无残留');
       }
+      // 双路分发器释放（VS-03）：解绑会话事件源 + 清空消费者，防事件泄漏
+      if (dispatcher) {
+        dispatcher.dispose();
+        dispatcher = null;
+      }
     };
 
     // ------------------------------------------------------------ Qwen 会话建立
@@ -169,28 +179,56 @@ class VoiceGatewayImpl implements VoiceGateway {
     }
     log('info', 'Qwen 会话建立成功');
 
-    // ------------------------------------------------------------ 下行 → 浏览器
-    session.onAudio((chunk) => {
-      if (closed) return;
-      // 说话中状态 + idle 回退计时（AI 停声 1.5s → idle）
-      setState('speaking');
-      if (idleTimer) clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => {
-        idleTimer = null;
-        setState('idle');
-      }, IDLE_TIMEOUT_MS);
-      sendToBrowser({ type: 'audio', data: chunk.toString('base64') });
+    // ------------------------------------------------------------ 双路分发（VS-03）
+    // dispatcher 把 Qwen 下行事件广播给两路消费者：①浏览器（audio→播放/subtitle→字幕/
+    // emotion→数字人）②deps 回调（编排层/SSE/BR-02）。广播顺序 = 订阅顺序（浏览器先收）。
+    dispatcher = createVoiceDispatcher({ log: (level, msg, meta) => log(level, msg, meta) });
+
+    // 路①浏览器消费者：下行 → WS（audio 顺带驱动 speaking/idle 状态机）
+    const browserConsumer: VoiceConsumer = {
+      onAudio: (chunk) => {
+        if (closed) return;
+        setState('speaking');
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          idleTimer = null;
+          setState('idle');
+        }, IDLE_TIMEOUT_MS);
+        sendToBrowser({ type: 'audio', data: chunk.toString('base64') });
+      },
+      onSubtitle: (text) => sendToBrowser({ type: 'subtitle', text }),
+      onEmotion: (e) => sendToBrowser({ type: 'emotion', emotion: e }),
+      // VS-04 VAD：用户说话 → listening 态（AI 若在播，服务端 server_vad 会自动打断，
+      // 客户端只需把状态透传给前端驱动数字人/UI）；语音结束 → 回 connected 等 AI 响应
+      onVadState: (speaking) => {
+        if (closed) return;
+        if (speaking) {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = null;
+          setState('listening');
+        } else if (state === 'listening') {
+          setState('connected');
+        }
+      },
+    };
+    dispatcher.subscribe(browserConsumer);
+
+    // 路②deps 消费者：副文本/情绪/function_call → 上层（function_call 只透传，红线 6）
+    const depsConsumer: VoiceConsumer = {
+      onSubtitle: (text) => this.deps.onSubtitle?.(text),
+      onEmotion: (e) => this.deps.onEmotion?.(e),
+      onFunctionCall: (call) => this.deps.onFunctionCall?.(call),
+    };
+    dispatcher.subscribe(depsConsumer);
+
+    // 用户语音转写（VS-05）：→ 浏览器 user_transcript + deps 透传（供编排层/字幕消费）
+    session.onInputTranscript((text, info) => {
+      sendToBrowser({ type: 'user_transcript', text, delta: info.delta });
+      this.deps.onInputTranscript?.(text, info);
     });
-    session.onSubtitle((text) => {
-      sendToBrowser({ type: 'subtitle', text });
-      this.deps.onSubtitle?.(text);
-    });
-    session.onEmotion((e) => {
-      sendToBrowser({ type: 'emotion', emotion: e });
-      this.deps.onEmotion?.(e);
-    });
-    // function_call 只透传（红线 6），执行归 BR-02（VS-06 接入）
-    session.onFunctionCall((call) => this.deps.onFunctionCall?.(call));
+
+    // 绑定会话事件源 → dispatcher 开始广播（audio/subtitle/emotion/functionCall 四路）
+    dispatcher.bind(session);
 
     // ------------------------------------------------------------ 浏览器上行 → Qwen
     const onBrowserMessage = (raw: unknown): void => {

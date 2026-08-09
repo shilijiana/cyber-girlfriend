@@ -5,6 +5,114 @@
 
 ---
 
+## 2026-08-09（M2 批量验收：VS-03/04/05/06 全部通过，仅剩 AP-05）
+
+### 做了什么
+- 架构负责人复核 VS-03~06 四个交付 + 复测单测全绿：
+  - VS-03 dispatcher 单测 17/17 ✅ · VS-06 function-calling 单测 15/15 ✅
+  - VS-04 VAD 单测 8/8 ✅ · VS-05 transcript 单测 7/7 ✅
+  - 契约 v1.8 已同步（v1.5~v1.8 变更齐全）；provider 新增 onVadState/onInputTranscript/sendFunctionCallOutput
+- TASKS.md / TASKS-CONFIG.md：VS-03/04/05/06 → ✅
+
+### 决策
+- M2 语音链路仅剩 AP-05（WS 服务端挂载 /ws/voice，gateway + fc 装配就绪）
+
+### 阻塞 / 下一步
+- 派 AP-05（P0，M2 收官）→ 完成后语音链路全通
+- CL-06/04/05（前端）可跟进
+
+---
+
+## 2026-08-09（VS-04 VAD 与打断完成，单测 8/8 + gateway 回归 26/26）
+
+### 做了什么
+- 执行 VS-04（voice-shell P1）：**server_vad 说话自动打断**契约落地 —— 官方文档核实（模型播报期间 VAD 检测到用户开口 → **服务端自动取消当前响应**（response.done cancelled），客户端无需主动 response.cancel，只透传状态）
+- 交付（契约 v1.8 §2.1/§2.2/§2.9，红线 4 先改契约）：
+  - `provider.ts`：`VoiceSession` 新增 `onVadState(cb: (speaking:boolean)=>void)`（speech_started → true / speech_stopped → false）
+  - `qwen-audio-client.ts`：dispatch 处理 `input_audio_buffer.speech_started/stopped` → 归一化回调（含 smart_turn 的 reason=turn_invalid 容错）；session.update 默认注入 `turn_detection:{type:'server_vad', threshold:0.5, silence_duration_ms:800}`（VS-01 已有，本任务补事件链路）
+  - `dispatcher.ts`：`VoiceConsumer` 加 `onVadState` + bind 注册 + broadcastVadState 广播（错误隔离同其余事件）
+  - `gateway.ts`：状态机 `connected/speaking/listening/idle` 四态 —— VAD true → `listening`（清 idle 回退定时器），false → 回 `connected` 等 AI 响应（audio 事件自然切 speaking）；浏览器收 `status:listening` 驱动前端
+- 规格文档：`docs/tasks/VS-04-vad-interrupt.md`（协议依据/契约/实现要点/验收/边界）
+- 验收：`vad-unit-test.ts` mock 单测 **8/8 通过**（server_vad 注入/threshold+silence/开始/结束/reason 容错/push-to-talk 兼容/close 清理）；`gateway-unit-test.ts` 回归 **26/26**（新增 ⑦ VAD 状态机 2 断言）；transcript 7/7；tsc 零错误
+
+### 决策
+- **打断职责边界**：server_vad 下打断由服务端自动处理（官方文档明确），客户端只透传 VAD 状态给前端（数字人 listening 态），不做多余 response.cancel——防与官方机制打架
+- **VAD 事件归一化**：协议两个事件（started/stopped）→ 一个 boolean 回调，上层无需关心协议细节；`turnDetection:null` 兼容 push-to-talk 模式
+- **状态机**：listening 独立于 speaking/idle（用户说话 vs AI 说话），前端 CL-01 AvatarCanvas 三态（idle/speaking/listening）直接对齐
+
+### 阻塞 / 下一步
+- M2 语音链路仅剩 **AP-05**（WS 服务端挂载，gateway 已就绪可挂）
+- CL-06 useVoice（订阅 status 含 listening）/ CL-04 CaptionBar（订阅 subtitle）等前端任务可跟进
+
+---
+
+## 2026-08-09（VS-03 双路分发完成，单测 17/17 + gateway 回归 26/26）
+
+### 做了什么
+- 执行 VS-03（voice-shell P1）：交付 `voice-shell/dispatcher.ts` —— 双路分发器（契约 v1.6 §2.9，v1.8 已并入 onVadState）
+- 分发器能力：`bind(session)` 绑定 VoiceSession 事件源 → 五路广播（audio→播放 / subtitle→字幕 / emotion→数字人 / vadState→前端 listening 态 / functionCall→BR-02 只透传）；`subscribe(consumer)` 返回退订函数（幂等）；`dispose()` 清空可复用；**错误隔离**（单消费者抛错不影响其他与后续广播）；**重绑防泄漏**（unbind 用空回调覆盖旧会话槽位）
+- gateway.ts（VS-02）改造：下行分发统一走 dispatcher —— 路①浏览器消费者（audio 驱动 speaking/idle 状态机 + 播放 / subtitle→字幕 / emotion→数字人）+ 路②deps 消费者（onSubtitle/onEmotion/onFunctionCall 透传）；cleanup 中 dispose 分发器。行为与改造前完全一致
+- 配套：契约 v1.5→v1.6（新增 §2.9 VoiceDispatcher）；v1.7/1.8 为并发会话并入（sendFunctionCallOutput/onVadState）；dispatcher 同步对齐；gateway-unit-test MockSession 补齐 onVadState（并发新增接口）
+- 验收：`dispatcher-unit-test.ts` mock 单测 **17/17 通过**（三路分发/多消费者/退订/错误隔离/dispose 幂等/重绑）；`gateway-unit-test.ts` 回归 **26/26 通过**（含 VS-05 转写用例），tsc 零错误
+
+### 决策
+- **分发器独立成组件**：VS-02 gateway 原内嵌双路，抽成 dispatcher 后可被多模块复用（gateway 浏览器路 + deps 路 + 后续 SSE/AV-04 订阅），职责单一可单测
+- **广播顺序 = 订阅顺序**：浏览器消费者先订阅先收，deps 后订阅后收，语义清晰
+- **重绑用空回调覆盖**：VoiceSession 回调是单槽位覆盖式，unbind 时置空引用不够（旧会话仍触发），改为空回调覆盖才真正断开（测试 ⑩ 验证）
+
+### 阻塞 / 下一步
+- 派 VS-04（VAD 与打断，onVadState 已并入 dispatcher 契约）+ AP-05（WS 挂载，gateway/dispatcher 就绪）
+- CL-04（CaptionBar）依赖 VS-03 已就绪，可随 M4 开工
+
+---
+
+## 2026-08-09（VS-06 Function Calling 注册完成，单测 15/15）
+
+### 做了什么
+- 执行 VS-06（voice-shell P0）：把 Qwen-Audio 的 function_call 事件与 BR-02 Hermes 大脑路由串成闭环
+- 交付：
+  - 新增 `voice-shell/function-calling.ts`（VS-06 装配层）：`createFunctionCallingLayer(deps)` 三钩子 —— ①`tools`（默认 `[hermesBrainTool]`，注册 hermes_brain）②`onFunctionCall`（拦截 → router.handle 执行）③`onSessionCreated`（拿 session 写回）。链路：function_call → router.handle → `session.sendFunctionCallOutput(out)` → Qwen 语音回复；brain 状态 working/done/failed 双路上报（浏览器 + deps.onBrainStatus）
+  - `voice-shell/provider.ts`：`VoiceSession` 新增 `sendFunctionCallOutput(out)`（契约 §2.2，v1.7）
+  - `voice-shell/qwen-audio-client.ts`：实现 `sendFunctionCallOutput`（buildFunctionCallOutputEvent + response.create，契约 §2.8）
+  - 新增 `voice-shell/function-calling-unit-test.ts`（mock，零额度）：**15/15 通过**（tools 注册/拦截透传/写回结构/brain 状态序列/失败路径/router 异常兜底/会话未就绪丢弃/**gateway 全链路装配**）
+  - `docs/architecture/module-contracts.md` v1.6 → **v1.7**（§2.2 `sendFunctionCallOutput` + §2.8 装配层定义与用法）
+- 全部现有测试回归通过：gateway-unit-test 24/24；tsc --noEmit 零错误
+
+### 决策
+- **装配层而非侵入式**：不改 gateway 业务逻辑（红线 6 语音壳不碰业务），用 `createFunctionCallingLayer` 挂 gateway deps 三钩子，AP-05 挂载时一行接线
+- **写回即触发语音**：`sendFunctionCallOutput` 内联 `response.create`（对齐契约 §2.8），Hermes 结果由 Qwen 直接"说出来"，无需额外注入
+- **错误兜底双保险**：router 不抛错（failed 写回）+ 防御性 catch（异常也构造 failed 写回），防会话卡死
+
+### 阻塞 / 下一步
+- 派 AP-05（WS 挂载：`createQwenAudioClient({tools: fc.tools})` + `createVoiceGateway` 接线，VS-06 装配样例见契约 §2.8）
+- VS-03/04 分发由对应会话跟进；CL-06（useVoice）消费 brain 状态显示"小呆正在思考…"
+
+---
+
+## 2026-08-09（VS-05 输入转写完成，单测 7/7 + gateway 24/24）
+
+### 做了什么
+- 执行 VS-05（voice-shell P2）：用户语音转文字回调链路补齐 —— `input_audio_transcription` 配置注入（VS-01 已埋）→ **转写文本回调（本任务）**
+- 交付：
+  - `voice-shell/provider.ts`：`VoiceSession` 新增 `onInputTranscript(cb(text, {delta}))`（契约 §2.2，v1.5）
+  - `voice-shell/qwen-audio-client.ts`：`conversation.item.input_audio_transcription.delta`（增量，delta=true）与 `.completed`（最终完整转写，delta=false）双事件解析 → 回调；空文本不触发；close 清理回调
+  - `voice-shell/gateway.ts`：`session.onInputTranscript` → 浏览器下行 `{type:'user_transcript', text, delta}` + deps 透传
+  - 新增 `voice-shell/transcript-unit-test.ts`（mock WebSocket，零额度）：**7/7 通过**（session.update 注入 fun-asr / delta 增量 / completed 最终 / 内嵌 emotion 双兼容 / 空文本容错 / close 清理）
+  - `voice-shell/gateway-unit-test.ts` 补 3 项转写透传用例：**24/24 通过**（原 21 + 新 3）
+  - `docs/architecture/module-contracts.md` v1.4 → **v1.5**（§2.1 `user_transcript` 事件 + §2.2 `onInputTranscript`）
+- tsc --noEmit 零错误
+
+### 决策
+- **回调语义**：单回调 + `{delta}` 标志位（true=增量片段 / false=最终完整转写），轻量不重复定义
+- **事件命名**：浏览器下行用 `user_transcript`（区别于 AI 字幕 `subtitle`），前端可区分"用户说了什么"与"AI 回答什么"
+- **修复并发冲突**：VS-03（双路分发 dispatcher）重构 gateway 时遗留 `let/const dispatcher` 重复声明 SyntaxError，已修复（删除冗余声明，不动 dispatcher 设计），tsc + 单测恢复通过
+
+### 阻塞 / 下一步
+- 派 VS-06（Function Calling 注册，依赖 BR-02 + VS-01）+ AP-05（WS 挂载）；VS-03/04 分发由对应会话跟进
+- CL-04（CaptionBar）可消费 `user_transcript` 显示用户语音字幕
+
+---
+
 ## 2026-08-09（VS-02 语音网关完成，单测 21/21 + 实测 5/5）
 
 ### 做了什么

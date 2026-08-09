@@ -1,12 +1,16 @@
 # 模块接口契约（Module Contracts）
 
 > **文档定位**：赛博女友各任务模块之间的**开发契约**——定义每个模块暴露的接口、依赖的接口、消息格式与协议，确保各模块并行开发互不冲突。
-> **文档日期**：2026-08-09 · 版本 v1.4
+> **文档日期**：2026-08-09 · 版本 v1.7
 > **配套**：`docs/architecture/overall-architecture.md`（架构总纲）、`docs/adr/`（决策记录）
 > **v1.1 变更**（老板 2026-08-09）：**删除 MemoryStore 与 Db 接口**——赛博女友无记忆、无数据库，事务与记忆由 Hermes 负责。
 > **v1.2 变更**（2026-08-09）：新增 §2.7 Core Orchestrator（AP-02 编排层）与 `/api/chat` 契约细化。
 > **v1.3 变更**（2026-08-09）：**人设文件化落地**——PersonaProvider 实现改为 FilePersonaProvider（直读 `~/.hermes/personas/`），人设分区记忆 + 专用 profile `cyber-girlfriend`（详见 `docs/research/hermes-capabilities-review.md` §3.1）。
 > **v1.4 变更**（2026-08-09）：新增 §2.8 FunctionRouter（BR-02）——Qwen Realtime function_call 中转契约，补齐 §2.2 引用的 `FunctionCall` 公共类型。
+> **v1.5 变更**（2026-08-09）：**VS-05 输入转写**——§2.1 下行新增 `user_transcript` 事件（用户语音转文字）；§2.2 `VoiceSession` 新增 `onInputTranscript` 回调（delta=true 增量 / false 最终完整转写）。
+> **v1.6 变更**（2026-08-09）：**VS-03 双路分发器**——新增 §2.9 `VoiceDispatcher`：把 VoiceSession 事件流按类型分发到多路消费者（音频→播放 / 副文本→字幕 / 情绪→数字人 / function_call→BR-02），与 §2.2 VoiceSession 回调解耦，gateway 双路（浏览器 + deps）统一走分发器。
+> **v1.7 变更**（2026-08-09）：**VS-06 Function Calling 注册**——§2.2 `VoiceSession` 新增 `sendFunctionCallOutput(out)`（写回 function_call_output 并触发 `response.create`，补齐 Function Calling 闭环）；§2.8 补装配说明（`voice-shell/function-calling.ts`：注册 hermesBrainTool → 拦截 → router.handle → 写回）。
+> **v1.8 变更**（2026-08-09）：**VS-04 VAD 与打断**——server_vad 模式契约落地：§2.1 WS 协议补 `status` 事件（含 `listening` 用户说话中态）；§2.2 `VoiceSession` 新增 `onVadState` 回调（speech_started/stopped 归一化为 `speaking: boolean`）；§2.9 `VoiceConsumer` 同步新增 `onVadState` 分发。**打断语义**：server_vad 下用户插话由服务端自动取消当前响应（response.done status=cancelled），客户端只需把 VAD 状态透传给前端（数字人 listening 态），无需主动 response.cancel。
 
 ---
 
@@ -56,7 +60,9 @@ client/  ──WS──▶  app/server（Core Orchestrator）  ──调用─�
 { type: 'ready', config: { sampleRate: 24000 } }
 { type: 'audio', data: ArrayBuffer }       // 下行 PCM 24kHz 16bit
 { type: 'subtitle', text: string }         // 字幕副文本
+{ type: 'user_transcript', text: string, delta: boolean }  // 用户语音转写（VS-05：delta=true 增量 / false 最终完整转写）
 { type: 'emotion', emotion: 'happy' }      // 情绪事件（驱动数字人）
+{ type: 'status', state: 'connected' | 'speaking' | 'listening' | 'idle' }  // 会话状态（VS-04：listening = 用户说话中，VAD 触发）
 { type: 'brain', status: 'working' | 'done', result?: string }  // Hermes 工作状态
 { type: 'error', message: string }
 ```
@@ -71,6 +77,9 @@ export interface VoiceSession {
   onSubtitle(cb: (text: string) => void): void;   // 字幕
   onEmotion(cb: (e: Emotion) => void): void;      // 情绪
   onFunctionCall(cb: (call: FunctionCall) => void): void; // Hermes 触发
+  onInputTranscript(cb: (text: string, info: { delta: boolean }) => void): void; // 用户语音转写（VS-05：delta=true 增量 / false 最终）
+  onVadState(cb: (speaking: boolean) => void): void; // VAD 状态（VS-04：speech_started → true / speech_stopped → false，server_vad 模式）
+  sendFunctionCallOutput(out: FunctionCallOutput): void; // 写回 function_call_output + response.create（VS-06，§2.8）
   injectAssistantText(text: string): void;        // 注入 Hermes 结果朗读
   interrupt(): void;
   close(): Promise<void>;
@@ -283,7 +292,78 @@ Qwen 下行 →  { type: 'conversation.item.created', item: { type: 'function_ca
                 → 再发 { type: 'response.create' } 让模型组织语音回复
 ```
 
+**装配层（VS-06）**：`voice-shell/function-calling.ts` 提供 `createFunctionCallingLayer(deps)`——把链路串起来：
+
+```ts
+// voice-shell/function-calling.ts（VS-06 装配层）
+export interface FunctionCallingLayerDeps {
+  router?: FunctionRouter;                 // 默认 functionRouter（BR-02）
+  tools?: unknown[];                       // 默认 [hermesBrainTool]（VS-06 注册 hermes_brain）
+  onBrainStatus?: (status: 'working' | 'done' | 'failed', result?: string) => void; // 上层状态（SSE 等）
+  log?: (level: 'debug' | 'info' | 'warn' | 'error', msg: string, meta?: unknown) => void;
+}
+export interface FunctionCallingLayer {
+  tools: unknown[];                                        // 传给 createQwenAudioClient({ tools })
+  onFunctionCall: (call: FunctionCall) => void;            // 挂到 gateway deps.onFunctionCall
+  onSessionCreated: (ctx: VoiceGatewayContext) => void;    // 挂到 gateway deps.onSessionCreated（拿 session 写回）
+}
+export function createFunctionCallingLayer(deps: FunctionCallingLayerDeps = {}): FunctionCallingLayer;
+```
+
+**装配用法**（AP-05 挂载 /ws/voice 时）：
+
+```ts
+const fc = createFunctionCallingLayer({ onBrainStatus: (s, r) => sse.broadcast({ type: 'brain', status: s, result: r }) });
+const gateway = createVoiceGateway({
+  provider: createQwenAudioClient({ tools: fc.tools }),  // ① 注册 hermes_brain
+  onFunctionCall: fc.onFunctionCall,                     // ② 拦截 function_call → router.handle
+  onSessionCreated: fc.onSessionCreated,                 // ③ 拿 session → sendFunctionCallOutput 写回
+});
+```
+
 **错误语义**：router 不抛错——所有失败（未知工具 / 参数非法 / runner 超时失败）都以 `status:'failed'` 写回，output 含 `error` 描述，由 Qwen 转述为友好语音。`callId` 缺失时无法写回，返回 `status:'failed'` 且 `callId` 为空。
+
+### 2.9 voice-shell 内部（VoiceDispatcher，VS-03 新增）
+
+> **v1.6 补充（VS-03）**：双路分发器——把 VoiceSession 的事件流按类型分发到**多路消费者**（音频→播放 / 副文本→字幕 / 情绪→数字人 / function_call→BR-02）。位于 voice-shell 内部，gateway（VS-02）用它实现"浏览器 + deps 回调"双路，前端（CL-04/CL-05/CL-06）与数字人（AV-04）为消费者。
+
+```ts
+// voice-shell/dispatcher.ts
+/** 单路消费者：只实现关心的回调，其余可选 */
+export interface VoiceConsumer {
+  /** 音频流 → 播放（PCM 24kHz 16bit 帧） */
+  onAudio?(chunk: Buffer): void;
+  /** 副文本 → 字幕（增量文本，上层累积展示） */
+  onSubtitle?(text: string): void;
+  /** 情绪 → 数字人（驱动 AvatarCanvas 选片） */
+  onEmotion?(e: Emotion): void;
+  /** VAD 状态 → 前端/数字人（VS-04：true=用户说话中 listening / false=语音结束） */
+  onVadState?(speaking: boolean): void;
+  /** function_call → BR-02（只透传不执行） */
+  onFunctionCall?(call: FunctionCall): void;
+}
+
+/** 双路分发器：绑定会话事件源，广播到所有已注册消费者 */
+export interface VoiceDispatcher {
+  /** 绑定事件源（VoiceSession，VS-01）；再次 bind 先解绑旧会话（幂等） */
+  bind(session: VoiceSession): void;
+  /** 注册消费者，返回退订函数 */
+  subscribe(consumer: VoiceConsumer): () => void;
+  /** 清空全部消费者并解绑事件源（幂等，可复用） */
+  dispose(): void;
+}
+
+/** 工厂：创建双路分发器（gateway 装配用；事件广播顺序 = 订阅顺序） */
+export function createVoiceDispatcher(): VoiceDispatcher;
+```
+
+**分发规则**：
+- 每个消费者**按需实现回调**（onAudio/onSubtitle/onEmotion/onFunctionCall 全可选），未实现的回调静默跳过
+- **错误隔离**：单个消费者回调抛错不影响其他消费者与后续广播（try/catch 包裹 + log 记录）
+- **解绑**：`subscribe` 返回退订函数（幂等，重复调用无副作用）；`dispose` 清空全部
+- **只透传不执行**（红线 6）：function_call 到消费者即止，执行归 BR-02（VS-06 接入）
+- **VAD 状态**（VS-04）：onVadState 广播顺序与其余事件一致；speaking=true 触发前端 listening 态，speaking=false 回退
+- **零持久化**（红线 1）：纯内存广播，无状态、无落盘
 
 ---
 
@@ -300,4 +380,4 @@ Qwen 下行 →  { type: 'conversation.item.created', item: { type: 'function_ca
 
 ---
 
-*模块契约 v1.2 · 2026-08-09 · 人设归 Hermes（PersonaProvider）+ 配置集中管理（AP-06 补充 .env 支持）+ Core Orchestrator 编排层（AP-02）*
+*模块契约 v1.8 · 2026-08-09 · 人设归 Hermes（PersonaProvider）+ 配置集中管理（AP-06 补充 .env 支持）+ Core Orchestrator 编排层（AP-02）+ 输入转写回调（VS-05）+ 双路分发器（VS-03）+ Function Calling 闭环（VS-06）+ VAD 与打断（VS-04）*

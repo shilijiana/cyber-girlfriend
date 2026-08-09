@@ -5,15 +5,16 @@
  *   通过本接口驱动语音会话；实现可替换（Qwen-Audio / Seeduplex / Qwen3-Omni，
  *   按 ADR-001 供应商抽象可替换）。
  *
- * 契约对齐：docs/architecture/module-contracts.md §2.2（v1.2）
+ * 契约对齐：docs/architecture/module-contracts.md §2.2（v1.8）
  * 复用类型（不重复定义）：
  *   - FunctionCall ← brain/function-router.ts（BR-02，函数调用归一化类型）
+ *   - FunctionCallOutput ← brain/function-router.ts（BR-02，写回内容，VS-06）
  *   - Emotion ← avatar/clip-matcher.ts（数字人情绪）
  *
  * 模块边界：纯类型定义，零运行时依赖（ADR-007）。实现见 qwen-audio-client.ts。
  */
 
-import type { FunctionCall } from '../brain/function-router.ts';
+import type { FunctionCall, FunctionCallOutput } from '../brain/function-router.ts';
 import type { Emotion } from '../avatar/clip-matcher.ts';
 
 /** 语音会话：一次 connect 对应一个会话（内部可断线重连，对外回调不丢） */
@@ -28,6 +29,12 @@ export interface VoiceSession {
   onEmotion(cb: (e: Emotion) => void): void;
   /** 函数调用（Hermes 触发，BR-02 的 FunctionCall 类型；透传不执行） */
   onFunctionCall(cb: (call: FunctionCall) => void): void;
+  /** 用户语音输入转写（VS-05）：delta=true 增量片段 / delta=false 最终完整转写（item 结束时回调） */
+  onInputTranscript(cb: (text: string, info: { delta: boolean }) => void): void;
+  /** VAD 状态（VS-04，server_vad 模式）：speech_started → true / speech_stopped → false，前端据此切 listening 态 */
+  onVadState(cb: (speaking: boolean) => void): void;
+  /** 写回 function_call_output（VS-06）：conversation.item.create + response.create，让 Qwen 组织语音回复 */
+  sendFunctionCallOutput(out: FunctionCallOutput): void;
   /** 注入文本让 Qwen 朗读（Hermes 结果）：conversation.item.create + response.create */
   injectAssistantText(text: string): void;
   /** 打断当前响应（response.cancel） */
