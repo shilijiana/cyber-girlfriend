@@ -83,6 +83,7 @@ Express 后端（Core Orchestrator，自研 ~400 行）
 | 当前任务与进度 | `docs/TASKS.md` |
 | 开发日志 | `docs/DEVLOG.md` |
 | 工作流规则 | `docs/WORKFLOW.md` |
+| **新聊天框唯一入口** | `docs/TASKS-CONFIG.md`（一个文件明确所有任务） |
 | 项目记忆 | `PROJECT_MEMORY.md` |
 
 ## 7. 快速上手（给新加入的模块开发者）
