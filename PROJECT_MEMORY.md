@@ -166,7 +166,9 @@
 - [x] **M4 前端集成开工：CL-06 useVoice + CL-08 audio.ts 完成**（2026-08-09）：`client/src/hooks/useVoice.ts`（连 /ws/voice 语音状态机：二进制 PCM16k 上行 / base64 PCM24k 下行、全事件分发、打断、StrictMode 安全）+ `client/src/voice/audio.ts`（PCM 编解码/重采样/RMS 能量 + createMicCapture/createAudioPlayer，零第三方）+ voice-machine.ts（状态机纯函数）；自检 67/67 + tsc 零错误 + vite build 通过
 - [x] **CL-03/04/05 前端三组件完成**（2026-08-09）：chat-core（消息模型/消息流/sendChatMessage 可注入 fetch，17/17）+ caption-core/CaptionBar（字幕增量缓冲 append/replace/reset 超长截断，13/13）+ waveform-core/VoiceWaveform（clampEnergy/emaSmooth/energyToBars 余弦包络 + 确定性抖动，30/30）；配套 createAudioPlayer onEnergy 可选回调 + useVoice onEnergy 透传（AnalyserNode 采样，向后兼容）；App.tsx 全量集成（数字人+聊天+字幕+波形+语音控制）；契约 v1.11
 - [x] **CL-07/09 完成（2026-08-09，M4 收官）**：useChat Hook（`client/src/hooks/use-chat.ts`，**复用 chat-core 消息流核心**避免双模型：messages/isLoading/error/inputValue/sendMessage/clear + onReply 集成回调，21/21）+ 旧脚手架迁移（`ChatInput.tsx`/`ChatMessages.tsx` 零依赖重写：textarea 自适应 + Enter 发送 / 气泡 + 打字三点 + 时间戳 + 自动滚动，类名对齐 index.css；ChatUI 组合 + onReply prop；多 Agent/会话/权限组件不迁移，旧目录 cybergirlfriend/ 保留归档）；全量 6 组自检 108 项通过 + tsc 零错误 + vite build；契约 v1.12
+- [x] **M5-02 错误处理与降级完成（2026-08-09）**：**Hermes 不可用 → 纯 Qwen 降级**——新增 `brain/qwen-fallback.ts`（零依赖全局 fetch + AbortController 超时 30s，DashScope OpenAI 兼容 `chat/completions`（qwen-plus，Bearer 鉴权，密钥走 config），人设 instructions 作 system 提示）；orchestrator 接入（契约 v1.13：`ChatResult.degraded?: boolean` + `OrchestratorDeps.fallbackRunner` 可选，Hermes 失败→降级 Qwen 成功 ok:true+degraded:true / 双重失败 ok:false 友好提示）；`/api/chat` 透传 degraded；**素材缺失→Live2D 兜底验证达标**（AvatarCanvas 内置 SVG 卡通兜底 + hasAssets，无需改码）；自检 qwen-fallback 15/15 + orchestrator 降级 12/12 + tsc 零错误；真实端到端：mock Hermes 失败 → 真实 Qwen 1.66s 降级回答（保持小呆人设）✅；契约 v1.13
+- [x] **M5-04 README 完善完成（2026-08-09）**：新建根 `README.md`（此前缺失）——项目简介/核心特性/架构概览（两条核心路径）/快速开始（环境要求+安装+配置+启动+curl 验证）/项目结构/自检测试命令/设计红线/文档索引；命令与自检脚本逐一实测通过；README 对外（怎么跑起来）与 BLUEPRINT 对内（怎么理解）分工
 - [ ] P5 体验优化 + 收尾
 
 ---
-*最后更新：2026-08-09（M4 前端集成收官：CL-01~09 全部完成——ChatUI/CaptionBar/VoiceWaveform + useChat Hook + 旧脚手架迁移，App 全量集成，契约 v1.12）*
+*最后更新：2026-08-09（M5-02 错误处理与降级完成（Hermes→纯 Qwen 降级 + 素材→Live2D 兜底，契约 v1.13）+ M5-04 README 完善完成（根 README.md 交付，启动/配置/架构概览））*

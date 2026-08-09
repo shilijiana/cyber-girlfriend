@@ -42,7 +42,7 @@
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | ✅ 完成 | **VS-01~06 ✅ + AP-05 ✅ + AP-06 ✅** —— 语音链路全通（/ws/voice 真实 Qwen 连接实测通过） |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | ✅ 完成 | AV-01~04 ✅ + CL-01/02 ✅（画布 + useAvatar + 素材 + 匹配引擎全通） |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | ✅ 完成 | CL-01~09 全部 ✅（ChatUI/useChat/迁移 + CaptionBar + VoiceWaveform + useVoice + audio.ts；tsc 零错误 + vite build 通过） |
-| **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成（含 CC-01/02 代码审查 + 依赖审计，老板定最后做） |
+| **M5** 联调收尾 | 端到端 + 优化 + 文档 | 🔄 进行中 | M5-01 联调实测：链路全通（REST/chat/人设切换/WS 语音 6/6/前端 build/数字人联动全 ✅），性能未达标（快问快答 20-39s vs <1s，瓶颈 Hermes 冷启动，ACP 常驻治本）；M5-02~04 待 M5-01 达标后推进；CC-01/02 审查审计 M5 末做 |
 
 ---
 
@@ -233,17 +233,17 @@ config → app → persona → brain → voice-shell → avatar → client
 
 ---
 
-## M5 · 联调收尾（📋 待开工）
+## M5 · 联调收尾（🔄 进行中）
 
 > **目标**：端到端联调 + 体验优化 + 文档完善。
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| M5-01 | 端到端联调 | P0 | 📋 | M1-M4 | 快问快答 <1s / 复杂事务 1.5-6s / 数字人联动 |
-| M5-02 | 错误处理与降级 | P1 | 📋 | M5-01 | Hermes 不可用→纯 Qwen / 素材缺失→Live2D 兜底 |
+| M5-01 | 端到端联调 | P0 | 🔄 | M1-M4 | 快问快答 <1s / 复杂事务 1.5-6s / 数字人联动（2026-08-09 联调实测：链路全通，**性能未达标**——快问快答 20.6-39.4s、复杂事务 28.5s，瓶颈 Hermes 冷启动（hermes -z 子进程 12-23s）；数字人联动 ✅。**老板 2026-08-09 拍板：ACP 常驻方案暂缓**（P1 延后），性能优化路线待定；详见 DEVLOG） |
+| M5-02 | 错误处理与降级 | P1 | ✅ | M5-01 | Hermes 不可用→纯 Qwen / 素材缺失→Live2D 兜底 |
 | M5-03 | Git 初始化与首次提交 | P1 | 📋 | M5-01 | git init + .gitignore + Conventional Commits + Tag |
-| M5-04 | README 完善 | P2 | 📋 | M5-01 | 项目 README：启动/配置/架构概览 |
-| M5-05 | .env.example 完善 | P1 | 📋 | AP-06 | 所有环境变量有示例与说明 |
+| M5-04 | README 完善 | P2 | ✅ | M5-01 | 项目 README：启动/配置/架构概览（`README.md` 已交付：项目简介 + 核心特性 + 架构概览（两条核心路径）+ 快速开始（环境要求/安装/配置/启动/快速验证 curl）+ 项目结构 + 自检测试命令 + 设计红线 + 文档索引；命令与自检脚本逐一实测通过） |
+| M5-05 | .env.example 完善 | P1 | ✅ | AP-06 | 所有环境变量有示例与说明（14 个变量全注释，含用途/默认值；补齐 HERMES_PROFILE/PERSONAS_DIR/TOOLSETS；loader 补 DASHSCOPE_REGION/MODEL 透传；交叉校验通过 + tsc 零错误） |
 
 ---
 

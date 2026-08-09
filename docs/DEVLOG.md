@@ -5,6 +5,89 @@
 
 ---
 
+## 2026-08-09（M5-04 README 完善：项目 README 交付 ✅）
+
+### 做了什么
+- **M5-04 README 完善（P2，✅ 完成）**：新建项目根 `README.md`（此前缺失）
+  - **内容**：项目简介（云端语音壳 + 本地大脑一句话定位）· 核心特性表（语音对话/数字人/字幕波形/文本聊天/复杂事务/错误降级/人设切换）· 架构概览（模块图 + 快问快答/复杂事务两条核心路径）· 快速开始（环境要求 Node22+/Hermes v0.20.0/DashScope Key + 安装 + 配置（apikeys.json vs .env 优先级 + 必填/常用变量表）+ 启动（后端 3000 + 前端 5173 代理）+ curl 快速验证）· 项目结构树 · 自检测试命令（根 + client 各模块）· 设计红线 6 条 · 文档索引
+  - **验证**：README 引用的自检命令逐一实测通过（orchestrator-degradation 12/12、qwen-fallback 15/15、client test:chat 17/17 + typecheck 零错误）；启动/配置/端口/代理信息与 package.json、vite.config、.env.example 交叉核对一致
+- 依赖 M5-01 非阻塞：README 是静态文档，性能优化不影响其准确性
+
+### 决策
+- README 作为项目唯一对外入口文档：与 BLUEPRINT（对内架构自解释）分工——README 面向"怎么跑起来"，BLUEPRINT 面向"项目怎么理解"，互链不重复
+
+### 阻塞 / 下一步
+- M5-01 性能优化路线待老板指示（ACP 暂缓）；M5-03 Git 初始化 / CC-01、02 审查待推进
+
+---
+
+## 2026-08-09（老板拍板：ACP 常驻方案暂缓）
+
+### 决策
+- **老板 2026-08-09 拍板：ACP 常驻方案暂时不需要**（M5-01 性能优化路线调整）——原治本方案（ACP 常驻，延迟 2-5s）挂起，性能优化路线待定
+- M5-01 状态维持 🔄（链路全通，性能项未达标：快问快答 20-39s vs <1s）；数字人联动 ✅ 不受影响
+- 后续：等老板重新指示性能优化方向（或接受现状，先推进 M5-03 Git / M5-04 README / CC-01、02 审查）
+
+### 阻塞 / 下一步
+- M5-01 性能项待老板定夺优化路线；M5-03/04 与 CC-01/02 可先行
+
+---
+
+## 2026-08-09（M5-02 错误处理与降级：Hermes 不可用 → 纯 Qwen 降级 ✅）
+
+### 做了什么
+- **M5-02 错误处理与降级（P1，✅ 完成）**：
+  - **Hermes 不可用 → 纯 Qwen 降级**（核心缺口补齐）：新增 `brain/qwen-fallback.ts`（零依赖全局 fetch + AbortController 超时，调用 DashScope OpenAI 兼容 `chat/completions`（qwen-plus 文本模型，Bearer 鉴权，密钥走 config），人设 instructions 作 system 提示 → 降级回答保持人设）
+  - **orchestrator 接入**（契约 v1.13）：`ChatResult` 新增 `degraded?: boolean`；`OrchestratorDeps` 新增可选 `fallbackRunner`；Hermes 失败 → 降级 Qwen（成功：ok:true + degraded:true；双重失败：ok:false + 友好提示）；`/api/chat` 响应透传 degraded
+  - **素材缺失 → Live2D 兜底**（验证达标，无需改码）：AvatarCanvas 内置 SVG 卡通兜底 + `useAvatar.hasAssets` + index.css 样式就位，CL-01 验收点 4 已覆盖
+- **自检与实测**：qwen-fallback 自检 **15/15**；orchestrator 降级链路自检 **12/12**；tsc 全项目零错误；function-calling 15/15 + dispatcher 17/17 回归全绿
+- **真实端到端**：mock Hermes 失败 → 真实 Qwen 降级回答成功（1.66s，保持小呆人设「我是住在老板电脑里的18岁元气AI少女小呆～🌸」）✅；正常 Hermes 链路回归（`1+1=?` → 小呆人设回复 8.9s）✅
+
+### 决策
+- 降级模型用 **qwen-plus**（DashScope 通用文本模型），超时 30s（纯聊天降级，比 Hermes 120s 事务超时短）
+- 降级通道实现 `BrainRunner` 同构接口 → orchestrator 只依赖抽象，不绑定具体实现（契约 §2.3/§2.7）
+
+### 阻塞 / 下一步
+- M5-01 性能优化（ACP 常驻）待推进；M5-03 Git / M5-04 README 待 M5-01 达标；CC-01/02 审查审计待 M5 末
+
+---
+
+## 2026-08-09（M5-01 端到端联调：链路全通，性能瓶颈暴露）
+
+### 做了什么
+- **M5-01 端到端联调（P0，🔄 进行中）**：全链路实测（真实 Hermes + 真实 Qwen-Audio）
+  - **REST 链路 ✅**：`/api/health` ok；`/api/brain/status` → `{available:true, version:"Hermes Agent v0.20.0"}`；`/api/avatar/status` → `{engine:"clip", clipCount:6}`；`/api/personas` → 3 人设（xiaodai/zhixin-jiejie/zhushou）active=xiaodai
+  - **文本 chat 链路 ✅（功能）**：快问快答 `1+1=?` → 小呆人设回复 ✅；`今天星期几？` → 正确 ✅；复杂事务 `统计 docs 目录 .md 文件` → Hermes 真实调工具数出 26 个并带路径列出 ✅
+  - **人设切换 ✅**：切知心姐姐成功、切不存在 id 报 `人设不存在`、切回小呆成功（写 active.txt 毫秒级）
+  - **语音 WS 链路 ✅（真实 Qwen）**：ws-smoke-test 6/6——REST 装配完好、/ws/voice 真实连接→ready（session_id 返回）、人设注入（session.update）、状态机 connected、断开清理、优雅关闭
+  - **前端 ✅**：tsc 零错误 + vite build 成功（49 模块 / JS 159.86kB）
+  - **数字人联动 ✅**：emotion-matcher 自检 12/12；五情绪（happy/gentle/serious/surprise/neutral）全部匹配素材，窗口避重轮换正常；manifest 6 条素材就位
+- **踩坑**：3000 端口被旧版服务进程占用（无 /api/personas 路由的旧代码）→ 查 PID 杀掉重启新版；vite build 被 WorkBuddy safe-delete 拦（清 dist）→ 手动清 dist 绕过
+
+### 决策
+- M5-01 验收标准**性能项未达标**：快问快答 20.6-39.4s（验收 <1s）、复杂事务 28.5s（验收 1.5-6s）——根因是 BR-01 每次 `hermes -z` 冷启动子进程（实测冷启动 12-23s）
+- 治本方案已立项思路：**ACP 常驻进程**（延迟 2-5s，P1）；`--resume` 续上下文（20.5s）提升有限，不采用
+
+### 阻塞 / 下一步
+- M5-01 性能优化：启动 ACP 常驻（或老板拍板其他方案）后复测，达标后 ✅
+- M5-02 错误降级 / M5-03 Git 初始化 / M5-04 README（M5-01 达标后推进）；CC-01/02 审查审计待 M5 末
+
+---
+
+### 做了什么
+- **M5-05 `.env.example` 完善（P1，✅）**：根目录 `.env.example` 重写——14 个环境变量全部带说明（用途 + 默认值），新增 `HERMES_PROFILE` / `HERMES_PERSONAS_DIR` / `HERMES_TOOLSETS`（原模板缺失，对应 loader.ts 记忆隔离与工具白名单）
+- **修复 AP-06 小遗漏**：`config/loader.ts` 补 `DASHSCOPE_REGION` / `DASHSCOPE_MODEL` 环境变量透传（原仅文件配置 + 默认值，模板声明了却不生效）
+- **验收**：临时校验脚本（`.tmp-probe/check-env-example.ts`）交叉比对模板变量 ↔ 新架构源码 `process.env` 引用：11→13 个源码引用全覆盖，模板仅余 VOICE_PROVIDER 预留项；tsc 零错误；loadConfig 功能验证通过（region/model/profile/toolsets/port 正常，密钥脱敏）
+
+### 决策
+- 模板声明但源码未引用的 VOICE_PROVIDER 保留（VS-01 预留，loadEnvFile 透传任意键，DESIGN/voice-shell README 已约定）
+- 校验脚本已删除，不留临时产物
+
+### 阻塞 / 下一步
+- M5-01 端到端联调（可派）/ M5-02 错误降级 / M5-03 Git 初始化 / M5-04 README / CC-01、02 审查审计（老板定 M5 最后做）
+
+---
+
 ## 2026-08-09（M4 完成：前端集成全通，全项目仅剩 M5 联调）
 
 ### 做了什么

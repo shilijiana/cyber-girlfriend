@@ -103,8 +103,11 @@ function mergeWithEnv(file: Partial<AppConfig>): AppConfig {
     dashscope: {
       apiKey: file.dashscope?.apiKey || process.env.DASHSCOPE_API_KEY || '',
       workspaceId: file.dashscope?.workspaceId || process.env.DASHSCOPE_WORKSPACE_ID || '',
-      region: file.dashscope?.region || 'cn-beijing',
-      model: file.dashscope?.model || 'qwen-audio-3.0-realtime-flash',
+      region: file.dashscope?.region || process.env.DASHSCOPE_REGION || 'cn-beijing',
+      model:
+        file.dashscope?.model ||
+        process.env.DASHSCOPE_MODEL ||
+        'qwen-audio-3.0-realtime-flash',
     },
     hermes: {
       binPath: file.hermes?.binPath || process.env.HERMES_BIN || 'hermes',
