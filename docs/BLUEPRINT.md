@@ -33,7 +33,7 @@ Express 后端（Core Orchestrator，自研 ~400 行）
 |------|------|------|----------|----------|
 | 1 | **config** ⚙️ | 配置中心：密钥集中管理，文件优先、环境变量兜底 | `config/apikeys.json` `config/loader.ts` | `AppConfig` / `loadConfig()` |
 | 2 | **app** 🖥️ | Express 装配、路由、WS、SSE | `server/index.ts` `server/routes.ts` | REST + WS + SSE |
-| 3 | **persona** 💃 | 人设接口（归 Hermes 维护）：PersonaProvider 抽象 + 切换 + 加载 | `provider.ts` | `PersonaProvider` |
+| 3 | **persona** 💃 | 人设接口（v1.3 人设文件化）：PersonaProvider 抽象 + 直读 personas 文件 + 分区记忆 | `provider.ts` | `PersonaProvider` |
 | 4 | **brain** 🧠 | 复杂事务执行（Hermes 子进程），记忆归 Hermes | `hermes-runner.ts` `function-router.ts` | `BrainRunner` |
 | 5 | **voice-shell** 🎙️ | 听、说、人设快问快答、转写、打断 | `qwen-audio-client.ts` `gateway.ts` | `VoiceProvider` / `VoiceSession` |
 | 6 | **avatar** 🎭 | 素材库匹配引擎，情绪 → 选片播放（方案已确认） | `clip-matcher.ts` `manifest.json` | `ClipMatcher` |
@@ -47,13 +47,14 @@ Express 后端（Core Orchestrator，自研 ~400 行）
 |---|------|------|
 | 1 | **无数据库、无持久化、无本地记忆** | 老板 2026-08-09 明确（ADR-006） |
 | 2 | **事务与记忆归 Hermes** | 老板：具体的事情有 Hermes 负责 |
-| 3 | **人设归 Hermes 维护** | 赛博女友只保留接口定义与加载抽象（ADR-007） |
+| 3 | **人设归 Hermes 维护** | 人设文件化：数据权威在 `~/.hermes/personas/`，赛博女友只读接口（评估报告 §3.1，老板拍板） |
 | 4 | **测试/CI 暂停** | 新架构落地后恢复 |
 | 5 | **文本中转不漂移** | Qwen ↔ Hermes 只传纯文本 |
 | 6 | **语音壳不碰业务** | instructions 只装人设，调度在 function-router |
 | 7 | **方案先确认再动手** | 重大变更先出方案给老板评审 |
 | 8 | **配置集中管理** | 所有密钥通过 config/loader.ts 统一加载（ADR-007） |
 | 9 | **依赖最小化** | 运行时 5-6 个纯 JS 依赖，零原生编译（ADR-007） |
+| 10 | **记忆双向隔离** | 赛博女友专用 profile `cyber-girlfriend`：无 MEM0 key、memories/ 空，与主 profile 互不污染（评估报告 §3.2，老板拍板） |
 
 ## 5. 技术栈
 

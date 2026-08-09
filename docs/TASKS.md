@@ -117,22 +117,24 @@ config → app → persona → brain → voice-shell → avatar → client
 | CF-01 | APIKEY 配置文件 + 加载器 | P0 | ✅ | - | `config/apikeys.example.json` + `config/loader.ts` 就绪；文件优先、环境变量兜底 |
 | CF-02 | .gitignore 更新 | P0 | 📋 | CF-01 | `config/apikeys.json` 被忽略，`apikeys.example.json` 入库 |
 
-### persona · 人设（v1.2：归 Hermes 维护）
+### persona · 人设（v1.3：人设文件化，老板拍板）
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | PS-01 | PersonaProvider 接口定义 | P0 | ✅ | - | `PersonaProvider` 接口 + `Persona`/`PersonaInfo` 类型定义完成 |
-| PS-02 | HermesPersonaProvider 实现 | P0 | ✅ | PS-01, BR-01 | 通过 `hermes -z` 获取人设列表/加载人设/切换人设，instructions 透传（代码已交付：JSON 提取容错+类型守卫+voiceConfig 归一化） |
-| PS-03 | 人设切换 API | P2 | 📋 | PS-02 | `POST /api/persona/switch` 切换活跃人设，无需重启 |
+| PS-02 | FilePersonaProvider 实现（人设文件化） | P0 | ✅ | PS-01 | 直读 `~/.hermes/personas/`：listPersonas 读 personas.json、getPersona 组装 card.md+memory.md、switchPersona 写 active.txt（毫秒级；`persona/file-persona-provider.ts` 已交付，2026-08-09 实测通过） |
+| PS-03 | 人设切换 API | P2 | ✅ | PS-02 | `POST /api/persona/switch` + `GET /api/personas` 已实现：FilePersonaProvider 读 personas/ 目录，切换写 active.txt（毫秒级、重启保持）；2026-08-09 实测通过 |
+| PS-04 | 人设分区记忆维护 | P1 | 📋 | PS-02 | memory.md 收尾指令模板：新事实追加 + >20 条/3KB 压缩为长期记忆；全局事实写 MEMORY.md |
 
 ### brain · 大脑
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底 |
+| BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底（优化：加 `--profile cyber-girlfriend -t terminal,file,web`） |
 | BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 hermes-runner → function_call_output 写回 |
 | BR-03 | Hermes 可用性探测 | P1 | ✅ | BR-01 | `/api/brain/status` 返回 Hermes 版本与可用性（app/server/routes.ts 已实现，2026-08-09 实测 `{available:true, version:"Hermes Agent v0.20.0"}`） |
 | BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时返回友好提示，Hermes 不可用时降级为纯 Qwen 答复（brain 失败降级已在 orchestrator 实现，剩余部分待评估） |
+| BR-05 | 工具集白名单 + AGENTS.md 安全层 | P0 | 📋 | BR-01 | runner 固定 `-t terminal,file,web`（或含 memory 按需）；后端工作目录放 AGENTS.md 行为守则（Hermes 评估报告 §3.4，老板拍板） |
 
 ---
 

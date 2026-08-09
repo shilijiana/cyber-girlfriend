@@ -1,10 +1,11 @@
 # 模块接口契约（Module Contracts）
 
 > **文档定位**：赛博女友各任务模块之间的**开发契约**——定义每个模块暴露的接口、依赖的接口、消息格式与协议，确保各模块并行开发互不冲突。
-> **文档日期**：2026-08-09 · 版本 v1.2
+> **文档日期**：2026-08-09 · 版本 v1.3
 > **配套**：`docs/architecture/overall-architecture.md`（架构总纲）、`docs/adr/`（决策记录）
 > **v1.1 变更**（老板 2026-08-09）：**删除 MemoryStore 与 Db 接口**——赛博女友无记忆、无数据库，事务与记忆由 Hermes 负责。
 > **v1.2 变更**（2026-08-09）：新增 §2.7 Core Orchestrator（AP-02 编排层）与 `/api/chat` 契约细化。
+> **v1.3 变更**（2026-08-09）：**人设文件化落地**——PersonaProvider 实现改为 FilePersonaProvider（直读 `~/.hermes/personas/`），人设分区记忆 + 专用 profile `cyber-girlfriend`（详见 `docs/research/hermes-capabilities-review.md` §3.1）。
 
 ---
 
@@ -108,18 +109,18 @@ export interface BrainResult {
 
 ### 2.4 app/server → persona（PersonaProvider）
 
-> **v1.2 变更**：人设由 Hermes 统一维护，赛博女友只保留接口定义、切换方式和加载抽象。不再本地存储角色卡文件。
+> **v1.3 变更**：人设**文件化落地**——数据权威在 Hermes 侧 `~/.hermes/personas/`，由 Hermes 统一维护（红线 3 不破）。赛博女友 PersonaProvider 实现改为 **FilePersonaProvider**（fs.readFile 直读，毫秒级，不再走 LLM 临场编 JSON）。方案详见 `docs/research/hermes-capabilities-review.md` §3.1（老板 2026-08-09 拍板）。
 
 ```ts
-// persona/provider.ts
+// persona/provider.ts（接口不变，v1.2 契约）
 export interface PersonaProvider {
   /** 获取可用人设列表 */
   listPersonas(): Promise<PersonaInfo[]>;
-  /** 加载指定人设（含 Hermes 预组装的 instructions） */
+  /** 加载指定人设（直读 personas.json + card.md + memory.md 组装） */
   getPersona(id: string): Promise<Persona>;
-  /** 人设 → Qwen instructions 文本（Hermes 已预组装，此处只做透传/格式化） */
+  /** 人设 → Qwen instructions 文本（角色卡 + 记忆区拼接，纯文本） */
   buildInstructions(persona: Persona): string;
-  /** 切换当前活跃人设 */
+  /** 切换当前活跃人设（写 active.txt，毫秒级） */
   switchPersona(id: string): Promise<void>;
 }
 
@@ -127,12 +128,16 @@ export interface PersonaInfo {
   id: string;
   name: string;
   description: string;
+  cardFile?: string;    // v1.3：角色卡路径（相对 personas/）
+  memoryFile?: string;  // v1.3：记忆区路径（相对 personas/）
+  voiceId?: string;     // v1.3：Qwen-Audio 音色 ID
+  emotion?: string;     // v1.3：默认情绪
 }
 
 export interface Persona {
   id: string;
   name: string;
-  instructions: string;              // Hermes 预组装好的 instructions 文本
+  instructions: string;              // 角色卡 + 记忆区 + 收尾指令（FilePersonaProvider 组装）
   voiceConfig?: {
     voiceId?: string;                // Qwen-Audio 音色 ID
     emotion?: string;                // 默认情绪
@@ -141,9 +146,24 @@ export interface Persona {
 }
 ```
 
-**实现**：`HermesPersonaProvider`（通过 `hermes -z` 子进程获取人设数据）
-**预留**：`FilePersonaProvider`（读 Hermes 写的人设 JSON 文件）、`HttpPersonaProvider`（Hermes MCP serve 常驻模式）
-**删除**：~~`character-silly.json`~~（角色卡数据归 Hermes）、~~`prompt-builder.ts` 组装逻辑~~（instructions 由 Hermes 预组装）
+**数据文件约定**（权威源，Hermes 维护，赛博女友只读）：
+
+```
+~/AppData/Local/hermes/profiles/cyber-girlfriend/
+├── personas/
+│   ├── personas.json      # 注册表（元数据：id/name/description/cardFile/memoryFile/voiceId/emotion）
+│   ├── active.txt         # 当前活跃人设 id（仅一行）
+│   ├── README.md          # 数据模型说明
+│   ├── xiaodai/
+│   │   ├── card.md        # 角色卡（静态：身份/性格/说话风格/世界观）
+│   │   └── memory.md      # 记忆区（动态：该人设视角的对话记忆，LLM 维护）
+│   └── .../（其他人设同构）
+└── config.yaml / .env     # 专用 profile：model=deepseek-chat，无 MEM0_API_KEY（记忆双向隔离）
+```
+
+**实现**：`FilePersonaProvider`（fs.readFile 直读，替换原 HermesPersonaProvider 的 LLM 临场编 JSON 方式）
+**删除**：~~`HermesPersonaProvider` 指令通道方案~~（LLM 临场编 JSON → 结果漂移 + 切换超时，已废弃）
+**记忆隔离**：专用 profile `cyber-girlfriend`（无 MEM0 key、memories/ 空）→ 与主 profile / mem0 **双向隔离**（实测验证，见评估报告 §3.2）
 
 ### 2.5 app/server → avatar（ClipMatcher）
 

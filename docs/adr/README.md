@@ -170,4 +170,33 @@ Accepted（老板 2026-08-09 指示）
 
 ---
 
-*ADR 目录 · 2026-08-09 · 7 条 ADR（ADR-007: 人设归 Hermes + 配置集中 + 轻量化）*
+## ADR-008: 人设文件化 + 记忆双向隔离（Hermes 评估结论落地）
+
+### Status
+Accepted（老板 2026-08-09 拍板，依据 Hermes 能力评估报告）
+
+### Context
+- Hermes 评估报告（`docs/research/hermes-capabilities-review.md`）发现：原 PS-02 方案（通过 `hermes -z` 让 LLM 临场编 JSON 实现人设）存在**架构空洞**——Hermes 侧无真实人设存储，同 id 结果漂移、switchPersona 超时（>120s）根因、"记住切换"是假动作（一次性进程结束即忘）
+- 老板要求：赛博女友的记忆与本地记忆/mem0 **双向隔离**，互不污染
+
+### Decision
+**人设文件化 + 人设分区记忆 + 专用 profile：**
+
+1. **数据文件化**：权威数据在 `~/AppData/Local/hermes/profiles/cyber-girlfriend/personas/`——`personas.json`（注册表）+ `active.txt`（活跃人设）+ `<id>/card.md`（角色卡）+ `<id>/memory.md`（记忆区）。赛博女友用 `FilePersonaProvider` **fs.readFile 直读**（毫秒级），不再走 LLM
+2. **人设分区记忆**：每个人设一套"角色卡 + 记忆区"，切换人设 = 切换记忆（类 SillyTavern 角色卡模式）；**先实现"新对话开始时切换"，中途热切换 P2 延后**
+3. **记忆双向隔离**：专用 profile `cyber-girlfriend`（独立 home、`.env` 无 MEM0_API_KEY、`memories/` 空、调用加 `-t terminal,file,web` 白名单）——LLM 无法读到主 profile 记忆，也无法写入 mem0（实测验证）
+4. **工具白名单**：runner 固定 `-t terminal,file,web`（安全边界 + 提速 ~4s），后端工作目录放 AGENTS.md 行为守则
+
+### Consequences
+- ✅ 人设确定性 100%（不再靠 LLM 临场编）
+- ✅ 切换毫秒级（17s+ → ms）
+- ✅ 角色扮演有"人生经历"（记忆区），跨会话稳定
+- ✅ 赛博女友与主 profile / mem0 双向隔离，互不污染
+- ✅ 堵住"50+ 工具免审批"安全风险（白名单 + AGENTS.md）
+- ⚠️ 并发写 memory.md 有覆盖风险（P0 单用户低风险；ACP 常驻后单会话串行天然规避）
+- ⚠️ memory.md 需压缩规则防膨胀（>20 条/3KB 触发压缩）
+- ⚠️ 原 HermesPersonaProvider（LLM 临场编 JSON 通道）废弃，替换为 FilePersonaProvider
+
+---
+
+*ADR 目录 · 2026-08-09 · 8 条 ADR（ADR-008: 人设文件化 + 记忆隔离）*

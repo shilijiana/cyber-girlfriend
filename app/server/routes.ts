@@ -110,6 +110,32 @@ export function createApiRouter(config: AppConfig, orchestrator: CoreOrchestrato
     res.json({ status: 'ok' });
   });
 
+  // GET /api/personas —— 人设列表 + 当前活跃（PS-03）
+  router.get('/personas', async (_req, res) => {
+    try {
+      const personas = await orchestrator.listPersonas();
+      res.json({ personas, active: orchestrator.getActivePersonaId() });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '人设列表读取失败';
+      res.status(500).json({ error: msg });
+    }
+  });
+
+  // POST /api/persona/switch —— 切换活跃人设（PS-03：写 active.txt，毫秒级，重启保持）
+  router.post('/persona/switch', async (req, res) => {
+    const id = (req.body as { id?: unknown } | undefined)?.id;
+    if (typeof id !== 'string' || id.trim().length === 0) {
+      res.status(400).json({ error: 'id 必填（非空字符串）' });
+      return;
+    }
+    const result = await orchestrator.switchPersona(id.trim());
+    if (!result.ok) {
+      res.status(400).json({ error: result.error ?? '切换失败' });
+      return;
+    }
+    res.json({ ok: true, persona: result.persona });
+  });
+
   // POST /api/chat —— 文本聊天（调试/降级，契约 §2.1 → §2.7 Core Orchestrator 完整链路）
   router.post('/chat', async (req, res) => {
     const message = parseMessage(req.body);

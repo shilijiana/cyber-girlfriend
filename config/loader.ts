@@ -23,6 +23,12 @@ export interface AppConfig {
     modelProvider: string;
     apiKey: string;
     baseUrl: string;
+    /** 专用 profile 名(记忆隔离,见 hermes-capabilities-review §3.2) */
+    profile: string;
+    /** personas 根目录(人设数据权威源,见 §3.7) */
+    personasDir: string;
+    /** 工具集白名单(不含 memory,写隔离硬约束) */
+    toolsets: string;
   };
   server: {
     port: number;
@@ -105,6 +111,12 @@ function mergeWithEnv(file: Partial<AppConfig>): AppConfig {
       modelProvider: file.hermes?.modelProvider || process.env.HERMES_MODEL_PROVIDER || 'deepseek',
       apiKey: file.hermes?.apiKey || process.env.HERMES_API_KEY || '',
       baseUrl: file.hermes?.baseUrl || process.env.HERMES_BASE_URL || '',
+      profile: file.hermes?.profile || process.env.HERMES_PROFILE || 'cyber-girlfriend',
+      personasDir:
+        file.hermes?.personasDir ||
+        process.env.HERMES_PERSONAS_DIR ||
+        'C:/Users/chipsine/AppData/Local/hermes/profiles/cyber-girlfriend/personas',
+      toolsets: file.hermes?.toolsets || process.env.HERMES_TOOLSETS || 'terminal,file,web',
     },
     server: {
       port: file.server?.port || Number(process.env.PORT) || 3000,

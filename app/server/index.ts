@@ -12,7 +12,10 @@ import type { Express } from 'express';
 import { config, maskKey } from '../../config/loader.ts';
 import { createApiRouter } from './routes.ts';
 import { createOrchestrator } from './orchestrator.ts';
-import { createDefaultPersonaProvider } from './default-persona-provider.ts';
+import {
+  createFilePersonaProvider,
+  readActivePersonaId,
+} from '../../persona/file-persona-provider.ts';
 import { brainRunner } from '../../brain/hermes-runner.ts';
 
 export function createApp(): Express {
@@ -21,10 +24,15 @@ export function createApp(): Express {
   // 中间件
   app.use(express.json());
 
-  // 编排层装配：PersonaProvider 当前为占位实现（PS-02 交付后替换，orchestrator 零改动）
+  // 编排层装配：PS-03 文件化人设（读 personas/ 目录，active.txt 持久化切换）
+  // 设计依据：docs/research/hermes-capabilities-review.md §3.1 / §3.7
+  const personaProvider = createFilePersonaProvider({
+    personasDir: config.hermes.personasDir,
+  });
   const orchestrator = createOrchestrator({
-    personaProvider: createDefaultPersonaProvider(),
+    personaProvider,
     brainRunner,
+    defaultPersonaId: readActivePersonaId(config.hermes.personasDir), // 重启后沿用 active.txt
   });
 
   // REST API（/api 前缀）

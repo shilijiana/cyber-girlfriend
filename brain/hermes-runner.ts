@@ -45,14 +45,19 @@ export async function runHermes(task: BrainTask): Promise<BrainResult> {
   const started = Date.now();
   const timeoutMs = task.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  // 组装命令：hermes -z "instruction"（binPath 用 config 绝对路径，避免 PATH 差异）
+  // 组装命令:hermes --profile <隔离profile> -z "instruction" -t <白名单>
+  // (PS-03:专用 profile + 工具集白名单 = 记忆隔离三层中的读/写硬隔离,见 hermes-capabilities-review §3.2)
   const binPath = config.hermes.binPath || 'hermes';
   const prompt = task.context
     ? `${task.instruction}\n\n[上下文] ${task.context}`
     : task.instruction;
+  const args: string[] = [];
+  if (config.hermes.profile) args.push('--profile', config.hermes.profile);
+  args.push('-z', prompt);
+  if (config.hermes.toolsets) args.push('-t', config.hermes.toolsets);
 
   return new Promise<BrainResult>((resolve) => {
-    const child = spawn(binPath, ['-z', prompt], {
+    const child = spawn(binPath, args, {
       windowsHide: true,                 // Windows 下隐藏黑窗口
       stdio: ['ignore', 'pipe', 'pipe'], // 不喂 stdin，只收 stdout/stderr
     });

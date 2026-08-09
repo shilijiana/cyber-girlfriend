@@ -44,7 +44,7 @@
 |------|------|-----------|------|
 | **config** | CF | 配置中心：密钥集中管理（文件优先、环境变量兜底） | ✅ 完成 |
 | **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01/02/03/04/06 完成 |
-| **persona** | PS | 人设接口（归 Hermes 维护）：PersonaProvider 抽象 | 🔄 PS-01/02 完成 |
+| **persona** | PS | 人设文件化（v1.3）：PersonaProvider + FilePersonaProvider + 分区记忆 | 🔄 PS-01/02/03 完成 |
 | **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | 🔄 BR-01/03 完成 |
 | **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 📋 待执行 |
 | **avatar** | AV | 数字人：素材匹配引擎（AV-01 完成） | 🔄 AV-01 完成 |
@@ -135,29 +135,22 @@ M5:  联调收尾
 
 ---
 
-### 模块 PS · persona 人设（归 Hermes 维护）
+### 模块 PS · persona 人设（v1.3：人设文件化，老板拍板）
 
 | 项 | 内容 |
 |----|------|
-| **执行入口** | `persona/provider.ts` |
-| **输入参数** | 人设 id；Hermes 返回的人设数据（JSON） |
-| **预期输出** | `PersonaProvider` 接口实现：listPersonas/getPersona/buildInstructions/switchPersona |
+| **执行入口** | `persona/provider.ts`（FilePersonaProvider 实现） |
+| **输入参数** | 人设 id；`~/.hermes/personas/` 下文件（personas.json / active.txt / card.md / memory.md） |
+| **预期输出** | `PersonaProvider` 接口实现：listPersonas 读 personas.json、getPersona 组装 card+memory、switchPersona 写 active.txt（毫秒级） |
+| **方案依据** | `docs/research/hermes-capabilities-review.md` §3.1（老板 2026-08-09 拍板：人设文件化 + 人设分区记忆 + 专用 profile cyber-girlfriend） |
 
-**接口定义（契约 v1.2，以此为准）**：
-```ts
-export interface PersonaProvider {
-  listPersonas(): Promise<PersonaInfo[]>;
-  getPersona(id: string): Promise<Persona>;
-  buildInstructions(persona: Persona): string;
-  switchPersona(id: string): Promise<void>;
-}
-export interface PersonaInfo { id: string; name: string; description: string; }
-export interface Persona {
-  id: string; name: string;
-  instructions: string;              // Hermes 预组装
-  voiceConfig?: { voiceId?: string; emotion?: string };
-  postHistoryInstructions?: string;
-}
+**数据文件约定**（权威源在 Hermes 侧，赛博女友只读）：
+```
+~/AppData/Local/hermes/profiles/cyber-girlfriend/personas/
+├── personas.json   # 注册表（id/name/description/cardFile/memoryFile/voiceId/emotion）
+├── active.txt      # 当前活跃人设 id（一行）
+├── xiaodai/card.md + memory.md   # 角色卡（静态）+ 记忆区（动态，LLM 维护）
+└── README.md       # 数据模型说明
 ```
 
 **任务清单**：
@@ -165,8 +158,9 @@ export interface Persona {
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | PS-01 | PersonaProvider 接口定义 | P0 | ✅ | - | `PersonaProvider` + `Persona`/`PersonaInfo` 类型定义完成 |
-| PS-02 | HermesPersonaProvider 实现 | P0 | ✅ | PS-01, BR-01 | 通过 `hermes -z` 获取/加载/切换人设，instructions 透传（代码已交付） |
+| PS-02 | FilePersonaProvider 实现 | P0 | ✅ | PS-01 | 直读 personas 文件：毫秒级切换（写 active.txt），人设确定性 100%（`persona/file-persona-provider.ts` 已交付） |
 | PS-03 | 人设切换 API | P2 | 📋 | PS-02 | `POST /api/persona/switch` 切换活跃人设，无需重启 |
+| PS-04 | 人设分区记忆维护 | P1 | 📋 | PS-02 | memory.md 收尾指令模板：新事实追加 + 超限压缩；全局事实写 MEMORY.md |
 
 ---
 
@@ -191,10 +185,11 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底 |
+| BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底（优化：加 `--profile cyber-girlfriend -t terminal,file,web`） |
 | BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 runner → function_call_output 写回 |
 | BR-03 | Hermes 可用性探测 | P1 | ✅ | BR-01 | `/api/brain/status` 返回版本与可用性（routes.ts 已实现，实测 `{available:true, version:"Hermes Agent v0.20.0"}`） |
 | BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时友好提示；Hermes 不可用降级纯 Qwen（brain 失败降级已在 orchestrator 实现） |
+| BR-05 | 工具集白名单 + AGENTS.md 安全层 | P0 | 📋 | BR-01 | runner 固定 `-t terminal,file,web`；后端工作目录放 AGENTS.md 行为守则（Hermes 评估 §3.4） |
 
 > 📌 **BR-01 实现规格**：`brain/hermes-runner-spec.md`（接口定义 + 实测 Hermes 参数 + 参考骨架 + 验收自检表，实测 `hermes -z "1+1=?"` → `2。`）
 

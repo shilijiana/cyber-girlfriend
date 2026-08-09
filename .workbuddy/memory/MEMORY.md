@@ -13,6 +13,16 @@
 - **APIKEY 集中配置**：`config/apikeys.json`（gitignore）+ `config/apikeys.example.json`（入库）+ `config/loader.ts`（文件优先、环境变量兜底）
 - **轻量化**：运行时依赖 13→5-6 个（删 SDK/DB/router/TDesign全家桶/uuid），总代码 ~5316→~1003 行（-81%），全部纯 JS 零原生编译
 
+## 人设文件化 + 记忆隔离（2026-08-09 ADR-008，老板拍板）
+
+- **Hermes 评估报告**：`docs/research/hermes-capabilities-review.md`（Hermes agent 亲自评估 + 实测数据）
+- **人设文件化**：权威数据 `~/AppData/Local/hermes/profiles/cyber-girlfriend/personas/`（personas.json + active.txt + card.md + memory.md），赛博女友 FilePersonaProvider fs.readFile 直读，毫秒级切换
+- **人设分区记忆**：每个人设一套 card+memory，切换人设=切换记忆；先做"新对话时切换"，热切换 P2
+- **记忆双向隔离**：专用 profile `cyber-girlfriend`（无 MEM0 key + memories/ 空 + `-t` 白名单），与主 profile/mem0 互不污染
+- **工具白名单**：runner 固定 `-t terminal,file,web` + AGENTS.md 行为守则（堵免审批风险）
+- **废弃**：原 HermesPersonaProvider（LLM 临场编 JSON）→ 替换 FilePersonaProvider
+- **实测基线**：hermes -z 冷启动 12~23s；`--resume` 续上下文 20.5s；ACP 常驻为 P1 治本方案（延迟 2-5s）
+
 ## 三文档工作流（2026-08-09 建立）
 
 - **项目协作基础设施**：四份核心文档管理项目全生命周期

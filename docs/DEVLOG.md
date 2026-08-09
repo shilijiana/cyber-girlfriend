@@ -5,6 +5,57 @@
 
 ---
 
+## 2026-08-09（人设方案文档同步：评估报告 → 契约/看板/ADR）
+
+### 做了什么
+- Hermes 更新人设方案到 `docs/research/hermes-capabilities-review.md` §3.1（人设文件化 + 分区记忆 + profile 隔离，老板已拍板）
+- 同步到项目文档：
+  - **module-contracts.md v1.3**：§2.4 人设文件化（FilePersonaProvider + 数据文件约定），PersonaInfo 扩展 cardFile/memoryFile/voiceId/emotion
+  - **TASKS.md / TASKS-CONFIG.md**：PS-02 方案改为文件化（✅ 已实现），新增 PS-04 分区记忆维护、BR-05 工具白名单
+  - **BLUEPRINT.md**：红线新增第 10 条"记忆双向隔离"，persona 模块说明更新
+  - **ADR-008**：人设文件化 + 记忆隔离决策记录
+  - **项目记忆 MEMORY.md**：人设文件化要点
+- 清理误创建空文件（"系统环境变量"/"默认值"）
+
+### 决策
+- 人设方案以评估报告 §3.1 为准（老板拍板）：文件化 + 分区记忆 + profile 隔离
+- PS-02（FilePersonaProvider）✅ 已交付，PS-03（切换 API）✅ 已交付
+
+### 阻塞 / 下一步
+- PS-04 人设分区记忆维护（收尾指令模板）待做
+- BR-05 工具白名单 + AGENTS.md 待做
+- ACP 常驻 P1 试点待排期
+
+---
+
+## 2026-08-09（PS-03 完成：人设文件化 + 切换 API + 记忆隔离落地）
+
+### 做了什么
+- **人设方案定稿并落地**（老板拍板）：人设数据文件化到 Hermes 专用 profile cyber-girlfriend（profiles/cyber-girlfriend/personas/），每人设 = card.md（角色卡静态）+ memory.md（记忆区动态，Hermes 维护）；切换 = 写 active.txt（毫秒级、重启保持）
+- **骨架已建**：personas.json 注册表（小呆/知心姐姐/助手）+ active.txt + README + 3 个人设目录
+- **PS-03 实现**：
+  - 新增 persona/file-persona-provider.ts（FilePersonaProvider：读注册表/角色卡/记忆区，instructions = 角色卡+记忆+收尾指令组装；弃用 PS-02 的 LLM 临场编 JSON 方案）
+  - app/server/routes.ts：新增 GET /api/personas + POST /api/persona/switch
+  - orchestrator.ts：新增 listPersonas，switchPersona 改为持久化（写 active.txt）
+  - brain/hermes-runner.ts：调用参数升级为 --profile cyber-girlfriend -z ... -t terminal,file,web（记忆隔离三层中的读/写硬隔离）
+  - config/loader.ts + apikeys.json：hermes 新增 profile/personasDir/toolsets 配置
+
+### 决策
+- **记忆隔离**（老板要求）：赛博女友与本地记忆/mem0 双向隔离。实测确认 --ignore-rules 挡不住 mem0，隔离必须靠独立 profile + 工具集白名单
+- 人设记忆写入走 Hermes 收尾指令（file 工具追加 memory.md），赛博女友只读文件
+
+### 验收（2026-08-09 实测）
+- ✅ npm run typecheck 零错误
+- ✅ GET /api/personas → 3 人设 + active；POST /api/persona/switch 切换后 active.txt 持久化；错误 id → 400
+- ✅ POST /api/chat（知心姐姐）→ 12.6s 人设语气回复（"姐姐在这儿呢，你什么都不用撑着"），隔离生效
+- ✅ 跨会话记忆："老板喜欢喝冰美式"写入 memory.md 后，新对话自动记得
+
+### 阻塞 / 下一步
+- 知心姐姐/助手 card 内容待老板定稿；具体人设记忆后期更新
+- 中途热切换（对话中"变成知心姐姐"）P2 延后
+- ACP 常驻（延迟 12s→2-5s）P1 试点
+---
+
 ## 2026-08-09（Hermes 功能实现方法文档产出）
 
 ### 做了什么

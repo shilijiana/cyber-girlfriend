@@ -44,9 +44,11 @@ export interface SwitchResult {
 export interface CoreOrchestrator {
   /** 文本聊天主流程：取人设 instructions → brain 执行 → 返回结果 */
   chat(req: ChatRequest): Promise<ChatResult>;
-  /** 切换活跃人设（先校验存在性，仅内存状态，无持久化） */
+  /** 人设列表（PS-03：文件化人设，来自 personas.json 注册表） */
+  listPersonas(): Promise<PersonaInfo[]>;
+  /** 切换活跃人设（先校验存在性，写 active.txt，毫秒级） */
   switchPersona(id: string): Promise<SwitchResult>;
-  /** 当前活跃人设 id（初始为默认人设） */
+  /** 当前活跃人设 id（初始为 active.txt，切换后同步内存） */
   getActivePersonaId(): string;
 }
 
@@ -105,9 +107,13 @@ class CoreOrchestratorImpl implements CoreOrchestrator {
     if (!found) {
       return { ok: false, error: `人设不存在：${id}` };
     }
-    await this.personaProvider.switchPersona(id);
-    this.activePersonaId = id; // 仅内存状态，重启回默认（无持久化）
+    await this.personaProvider.switchPersona(id); // PS-03：写 active.txt（毫秒级，持久化）
+    this.activePersonaId = id; // 同步内存态
     return { ok: true, persona: found };
+  }
+
+  async listPersonas(): Promise<PersonaInfo[]> {
+    return this.personaProvider.listPersonas();
   }
 
   getActivePersonaId(): string {

@@ -9,7 +9,10 @@
     "binPath": "C:/Users/chipsine/AppData/Local/hermes/hermes-agent/.venv/Scripts/hermes",
     "modelProvider": "deepseek",
     "apiKey": "",
-    "baseUrl": ""
+    "baseUrl": "",
+    "profile": "cyber-girlfriend",
+    "personasDir": "C:/Users/chipsine/AppData/Local/hermes/profiles/cyber-girlfriend/personas",
+    "toolsets": "terminal,file,web"
   },
   "server": {
     "port": 3000,
