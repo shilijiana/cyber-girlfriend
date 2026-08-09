@@ -41,7 +41,7 @@
 | **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | ✅ 完成 | **VS-01~06 ✅ + AP-05 ✅ + AP-06 ✅** —— 语音链路全通（/ws/voice 真实 Qwen 连接实测通过） |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | ✅ 完成 | AV-01~04 ✅ + CL-01/02 ✅（画布 + useAvatar + 素材 + 匹配引擎全通） |
-| **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 🔄 进行中 | CL-06（useVoice）+ CL-08（audio.ts）✅；CL-03/04/05/07/09 待开工 |
+| **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | ✅ 完成 | CL-01~09 全部 ✅（ChatUI/useChat/迁移 + CaptionBar + VoiceWaveform + useVoice + audio.ts；tsc 零错误 + vite build 通过） |
 | **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成（含 CC-01/02 代码审查 + 依赖审计，老板定最后做） |
 
 ---
@@ -223,13 +223,13 @@ config → app → persona → brain → voice-shell → avatar → client
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| CL-03 | ChatUI 组件 | P1 | 📋 | AP-03 | 聊天界面，收敛单一人设，文字聊天可用 |
-| CL-04 | CaptionBar 组件 | P1 | 📋 | VS-03 | 字幕显示，S2S 副文本驱动（订阅 subtitle 事件） |
-| CL-05 | VoiceWaveform 组件 | P2 | 📋 | VS-02 | 情绪波形动画，AudioAnalyser 能量驱动（能量函数已随 CL-08 交付） |
+| CL-03 | ChatUI 组件 | P1 | ✅ | AP-03 | 聊天界面，收敛单一人设，文字聊天可用（`client/src/components/chat-core.ts` 已交付：消息模型 ChatMessage（id/role/text/ts/pending/error）+ 消息流纯函数 addUserMessage/addPending/resolvePending/markError + sendChatMessage（POST §2.1 /api/chat，可注入 fetch，网络/HTTP/结构异常全兜底 ok:false 不抛错）；自检 17/17 + tsc 零错误 + vite build；ChatUI 面板由 CL-07/09 组合交付（useChat 复用 chat-core + ChatMessages/ChatInput），2026-08-09 验收） |
+| CL-04 | CaptionBar 组件 | P1 | ✅ | VS-03 | 字幕显示，S2S 副文本驱动（订阅 subtitle 事件）（`client/src/components/caption-core.ts` + `CaptionBar.tsx` 已交付：增量缓冲 createCaptionBuffer（append 累积 / replace 整段 / reset 清空，超长截断保留尾部 + 省略号）+ 受控展示组件（text/visible/tone，aria-live）；自检 13/13 + tsc 零错误 + vite build，2026-08-09 验收） |
+| CL-05 | VoiceWaveform 组件 | P2 | ✅ | VS-02 | 情绪波形动画，AudioAnalyser 能量驱动（`client/src/components/waveform-core.ts` + `VoiceWaveform.tsx` 已交付：clampEnergy/emaSmooth/isSilent/energyToBars（余弦包络中间高两端低 + LCG 确定性抖动，可测）+ 受控 energy / source 自驱动双模式（rAF 平滑渲染，卸载取消）；配套 createAudioPlayer 可选 onEnergy 回调（AnalyserNode + computeEnergy，未传零开销）+ useVoice onEnergy 透传，向后兼容（契约 v1.11）；自检 30/30 + tsc 零错误 + vite build，2026-08-09 验收） |
 | CL-06 | useVoice Hook | P0 | ✅ | VS-02 | 语音会话状态机：采集/播放/打断/状态（`client/src/hooks/useVoice.ts` 已交付：连接 /ws/voice（二进制 PCM16k 上行 / base64 PCM24k 下行）、状态机抽纯函数 `voice-machine.ts`（idle/connecting/connected/speaking/listening/closed/error + gateway 状态映射）、audio→顺序播放 / subtitle / user_transcript / emotion / brain / error 全事件分发、sendInterrupt 打断、StrictMode 安全生命周期；自检 67/67 + tsc 零错误 + vite build 通过，2026-08-09 验收） |
-| CL-07 | useChat Hook | P2 | 📋 | AP-03 | 文本聊天（调试/降级） |
+| CL-07 | useChat Hook | P2 | ✅ | AP-03 | 文本聊天（调试/降级）（`client/src/hooks/use-chat.ts` 已交付：**复用 CL-03 chat-core 纯函数核心**的 React Hook——messages/isLoading/error/inputValue/sendMessage/clear；options 支持 url（默认 /api/chat）/personaId/onError/onReply（App 集成字幕）；消息流 user+pending 占位 → sendChatMessage → resolvePending，网络/HTTP/结构异常全兜底 ok:false 不抛错；零持久化零第三方；自检 21/21 + tsc 零错误 + vite build，2026-08-09 验收） |
 | CL-08 | audio.ts 工具 | P1 | ✅ | - | getUserMedia 采集、播放、音频能量分析（`client/src/voice/audio.ts` 已随 CL-06 前置交付：encodePCM16/decodePCM16（Int16 LE 对称端点）/resampleLinear（时间轴语义 + 末端 clamp）/computeEnergy（RMS，供 CL-05）+ createMicCapture（getUserMedia→48k→重采样 16k→Int16 帧）/createAudioPlayer（PCM24k 顺序队列无间隙播放 + interrupt 打断），零第三方，2026-08-09 验收） |
-| CL-09 | 旧脚手架前端迁移 | P1 | 📋 | CL-03 | cybergirlfriend/src → client/，多 Agent → 单一人设 |
+| CL-09 | 旧脚手架前端迁移 | P1 | ✅ | CL-03 | cybergirlfriend/src → client/，多 Agent → 单一人设（`ChatInput.tsx`/`ChatMessages.tsx` 零依赖重写交付：textarea 自适应（1~6 行）+ Enter 发送 / 气泡（user 右 assistant 左）+ 打字三点占位 + 时间戳 + 自动滚动 + 空态引导，类名对齐 CL-03/04/05 index.css（.chat-list/.chat-msg/.chat-bubble/.chat-typing/.chat-input-row）；ChatUI 组合 ChatMessages+ChatInput+useChat（CL-07）；**不迁移**多 Agent/会话/权限体系组件（Sidebar/NewChatDialog/PermissionDialog/AgentConfigDialog/SettingsPage/ToolCallsCollapse/useAgents/useModels/useSessions 等——新架构单一人设零持久化无对应需求，旧目录 cybergirlfriend/ 保留归档待老板确认清理）；自检 21/21（CL-07 集成）+ tsc 零错误 + vite build，2026-08-09 验收） |
 
 ---
 

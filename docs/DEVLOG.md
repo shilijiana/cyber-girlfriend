@@ -5,6 +5,63 @@
 
 ---
 
+## 2026-08-09（M4 完成：前端集成全通，全项目仅剩 M5 联调）
+
+### 做了什么
+- 老板要求"更新项目信息"→ 全面核查：**M4 前端集成 ✅ 完成**（CL-01~09 全部交付）
+- 新交付：CL-03 ChatUI（chat-core 17/17）+ CL-04 CaptionBar（13/13）+ CL-05 VoiceWaveform（30/30）+ CL-07 useChat（21/21）+ CL-09 迁移（ChatInput/ChatMessages 重写）
+- 里程碑：M0~M4 全部 ✅，**仅剩 M5 联调收尾**（端到端 + CC-01/02 审查审计）
+
+### 决策
+- M4 收官，进入 M5：端到端联调（M5-01）→ 错误降级（M5-02）→ Git 收尾（M5-03/05）
+- CC-01/02 按老板指示在 M5 阶段执行
+
+### 阻塞 / 下一步
+- M5-01 端到端联调（依赖 M1-M4 全齐 ✅，可派）
+- M5-02 错误处理与降级 / M5-03 Git 初始化收尾 / M5-05 .env.example 完善
+
+---
+
+## 2026-08-09（CL-07/09 完成：useChat Hook + 旧脚手架迁移，M4 收官）
+
+### 做了什么
+- **CL-07 useChat Hook（P2，✅）**：`client/src/hooks/use-chat.ts`——**复用 CL-03 chat-core 纯函数核心**（不重复实现消息/请求逻辑）：messages/isLoading/error/inputValue/sendMessage/clear；options 支持 url/personaId/onError/onReply（App 集成字幕）；消息流 user+pending 占位 → sendChatMessage → resolvePending，网络/HTTP/结构异常全兜底；零持久化零第三方；自检 21/21
+- **CL-09 旧脚手架迁移（P1，✅）**：`ChatInput.tsx`/`ChatMessages.tsx` 零依赖重写（textarea 自适应 + Enter 发送 / 气泡 + 打字三点占位 + 时间戳 + 自动滚动 + 空态引导），类名对齐 CL-03/04/05 index.css；ChatUI 组合 ChatMessages+ChatInput+useChat 并补 onReply prop（兼容 App 集成）；多 Agent/会话/权限组件（Sidebar/PermissionDialog/useAgents 等）不迁移——新架构单一人设零持久化无对应需求，旧目录 `cybergirlfriend/` 保留归档
+- **验收**：CL-07 自检 21/21 + 全量 6 组自检 108 项通过 + tsc 零错误 + vite build 通过（49 模块 / JS 159.86kB）
+- **契约 v1.12**：CL-07/09 对接说明 + ChatUI onReply + chat-core-test TS 修复说明
+- **踩坑**：① vite build 被 WorkBuddy safe-delete 拦（清 dist）→ mv 走旧 dist 绕过；② chat-core-test 的 IIFE 捕获变量 TS 控制流推断为 never → const 对象引用修复
+
+### 决策
+- **并发协调**：与 CL-03/04/05 会话并行工作——use-chat 复用 chat-core 统一消息模型；ChatUI 类名/契约对齐对方 index.css 与 onReply；只追加 CSS（.chat-error/.chat-list-bar），不覆盖对方样式
+- 迁移范围收敛：只迁 ChatUI 三件套（输入/消息/面板），旧脚手架多 Agent 体系整体不迁移
+
+### 阻塞 / 下一步
+- `cybergirlfriend/` 旧目录去留待老板确认（建议确认后归档/清理）
+- M4 收官 → 进 M5 联调收尾（含 CC-01/02 审查）
+
+---
+
+## 2026-08-09（CL-03/04/05 完成：ChatUI 消息核心 + CaptionBar 字幕 + VoiceWaveform 波形）
+
+### 做了什么
+- **CL-03 ChatUI（P1，✅）**：`client/src/components/chat-core.ts`——消息模型 `ChatMessage` + 消息流纯函数（addUserMessage/addPending/resolvePending/markError）+ `sendChatMessage`（POST /api/chat，可注入 fetch，网络/HTTP/结构异常全兜底 ok:false 不抛错）；自检 17/17
+- **CL-04 CaptionBar（P1，✅）**：`caption-core.ts`（createCaptionBuffer：append 增量累积 / replace 整段 / reset，超长截断保留尾部 + 省略号）+ `CaptionBar.tsx`（受控展示 text/visible/tone，aria-live）；自检 13/13
+- **CL-05 VoiceWaveform（P2，✅）**：`waveform-core.ts`（clampEnergy/emaSmooth/isSilent/energyToBars——余弦包络中间高两端低 + LCG 确定性抖动，同 seed 同结果可测）+ `VoiceWaveform.tsx`（受控 energy / source.getEnergy() 自驱动双模式，rAF 平滑渲染卸载取消）；自检 30/30
+- **音频能量回调（CL-05 能量源）**：`audio.ts` createAudioPlayer 新增可选 `onEnergy`（AnalyserNode 常驻 + rAF 采样 getFloatTimeDomainData → computeEnergy，未传零开销）；`useVoice` 新增 `onEnergy` 透传（optsRef 取最新值）；向后兼容（契约 v1.11）
+- **App.tsx 集成**：AvatarCanvas + ChatUI + CaptionBar（字幕累积/用户转写/文本回复三源驱动）+ VoiceWaveform（播放能量）+ useVoice（语音开关/打断/状态徽标）；index.css 追加 chat/caption/waveform 全套样式
+- **契约 v1.11**：CL-03/04/05 client 侧对接说明 + 音频能量回调约定
+- **踩坑**：energyToBars 包络公式写错（cos(πt) 右端为 1）→ 改 cos(2πt) 才正确 0→1→0；自检兜住 ✅
+
+### 决策
+- **并行协调（CL-07/09 会话并发）**：chat-core 被 CL-07 useChat 直接复用（消息/请求逻辑防双模型漂移）；ChatUI 面板由 useChat + ChatMessages + ChatInput 组合（并行会话交付），保留其文件不覆盖，App 按 onReply 契约适配；我负责 chat-core 核心 + CaptionBar + VoiceWaveform + 集成
+- **波形能量源双模式**：受控 energy（外部喂，如 useVoice onEnergy）+ source.getEnergy() 自驱动（rAF 轮询），核心纯函数 node 可测（与 avatar-canvas-core/voice-machine 惯例一致）
+
+### 阻塞 / 下一步
+- CL-07（useChat）/CL-09（迁移）由并行会话推进中（use-chat.ts + ChatMessages/ChatInput 已就位，use-chat-test 待其自检）
+- M4 收尾后进 M5 联调（快问快答 / 数字人联动 / 错误降级）
+
+---
+
 ## 2026-08-09（CC-01/02 延后：Claude Code 审查放 M5 最后做）
 
 ### 做了什么

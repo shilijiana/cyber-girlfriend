@@ -13,6 +13,17 @@
 > **v1.8 变更**（2026-08-09）：**VS-04 VAD 与打断**——server_vad 模式契约落地：§2.1 WS 协议补 `status` 事件（含 `listening` 用户说话中态）；§2.2 `VoiceSession` 新增 `onVadState` 回调（speech_started/stopped 归一化为 `speaking: boolean`）；§2.9 `VoiceConsumer` 同步新增 `onVadState` 分发。**打断语义**：server_vad 下用户插话由服务端自动取消当前响应（response.done status=cancelled），客户端只需把 VAD 状态透传给前端（数字人 listening 态），无需主动 response.cancel。
 > **v1.9 变更**（2026-08-09）：**AV-04 情绪匹配与轮换**——§2.5 新增 `EmotionMatcher`（`avatar/emotion-matcher.ts`）：在 `ClipMatcher` 纯函数之上封装带会话状态的情绪匹配器（内部维护最近播放窗口，默认 5，自动避重复；`pick`/`markPlayed`/`reset`/`getRecent`），调用方只需传情绪事件。对接链路：Qwen 情绪事件 → `dispatcher.onEmotion` → `EmotionMatcher.pick` → Clip → CL-01 播放。自检 12/12 通过。
 > **v1.10 变更**（2026-08-09）：**CL-02 useAvatar 控制 Hook**——§2.5 补 client 侧对接说明：`useAvatar`（`client/src/hooks/use-avatar.ts`）为 AvatarCanvas 的外部控制层（素材加载 manifest→ClipLibrary、状态机 idle/speaking/listening、情绪对齐 setEmotion、轮换 next/reset），复用 §2.5 的 `createAvatarMatcher`/`pickClipForState`（avatar-canvas-core）。Hook 内部 matcher 与 AvatarCanvas 播放器内部 matcher 为独立实例，选片逻辑同源，行为一致。自检 14/14 + tsc 零错误（voice/ 模块未计入，属 CL-08 范围）。
+> **v1.11 变更**（2026-08-09）：**CL-03/04/05 前端三组件**——§2.1 补 client 侧对接说明：
+>
+> - **CL-03 ChatUI**（`client/src/components/chat-core.ts` + `ChatUI.tsx`）：消息模型 `ChatMessage`（id/role/text/ts/pending/error）+ 纯函数消息流（`addUserMessage` / `addPending` / `resolvePending` / `markError`）+ `sendChatMessage`（POST §2.1 `/api/chat`，可注入 `fetch` 便于测试）；组件收敛单一人设，文字聊天可用。
+> - **CL-04 CaptionBar**（`client/src/components/caption-core.ts` + `CaptionBar.tsx`）：字幕增量缓冲 `createCaptionBuffer(maxChars?)`——`append(chunk)` 增量累积 / `replace(text)` 整段替换（用户转写） / `reset()` 清空，超长截断保留尾部（最近内容优先）；组件为受控纯展示（text/visible/tone），S2S 副文本经 §2.1 `subtitle` 事件驱动。
+> - **CL-05 VoiceWaveform**（`client/src/components/waveform-core.ts` + `VoiceWaveform.tsx`）：能量→波形动画核心——`clampEnergy`（0~1 钳制）/ `emaSmooth`（指数平滑防抖）/ `energyToBars(energy, count, seed?)`（余弦包络中间高两边低 + 确定性伪随机抖动，可测）/ `isSilent`（静音阈值）；组件支持**受控模式**（`energy` prop，外部喂 0~1）与**自驱动模式**（`source.getEnergy()`，内部 rAF 轮询采样）。
+> - **音频能量回调**（向后兼容，可选参数）：`createAudioPlayer` 新增可选 `onEnergy(energy)` 回调（内部常驻 AnalyserNode + rAF 采样，`getFloatTimeDomainData` → §2.1 能量函数 `computeEnergy`；未传不创建 analyser/rAF，零开销）；`useVoice` 新增 `onEnergy` 选项透传（CL-05 波形能量源，经 optsRef 取最新值）。
+> **v1.12 变更**（2026-08-09）：**CL-07 useChat Hook + CL-09 旧脚手架迁移**——
+>
+> - **CL-07 useChat**（`client/src/hooks/use-chat.ts`）：文本聊天 React Hook（调试/降级链路），**复用 CL-03 `chat-core.ts` 纯函数核心**（不重复实现消息/请求逻辑，防双模型漂移）。暴露 `UseChatResult`：`messages`（`ChatMessage[]`，chat-core 模型）/ `isLoading` / `error` / `inputValue` / `setInputValue` / `sendMessage(text?)` / `clear()`；`UseChatOptions` 支持 `url`（默认 `/api/chat`）/ `personaId?` / `onError?` / `onReply?`（App 集成：驱动字幕条）。消息流：追加 user + pending 占位 → `sendChatMessage`（内部兜底网络/HTTP 失败）→ `resolvePending` 填充。零持久化、零第三方。自检 21/21 + tsc 零错误 + vite build 通过。
+> - **CL-09 旧脚手架迁移**（cybergirlfriend/src → client/，多 Agent → 单一人设）：零依赖重写 `ChatInput.tsx`（textarea 自适应 + Enter 发送 + loading 禁用）与 `ChatMessages.tsx`（气泡 + 打字占位 + 时间戳 + 自动滚动 + 空态），样式类名对齐 CL-03/04/05 index.css（.chat-list/.chat-msg/.chat-bubble/.chat-typing/.chat-input-row）；ChatUI 组合两者 + useChat 作为消息源；**不迁移**多 Agent/会话/权限体系组件（Sidebar/NewChatDialog/PermissionDialog/AgentConfigDialog/SettingsPage/ToolCallsCollapse/useAgents/useModels/useSessions 等，新架构无对应需求，旧目录 `cybergirlfriend/` 保留归档待老板确认清理）。
+> - **CL-03 ChatUI 补充**：`ChatUI` 新增 `onReply?: (result: { ok, reply }) => void` prop（透传 useChat.onReply，App 集成字幕用）；`chat-core-test.ts` 修复 IIFE 捕获变量 TS 控制流推断问题（`let captured | null` → `const captured` 对象引用，tsc 零错误）。
 
 ---
 
@@ -420,4 +431,4 @@ export function createVoiceDispatcher(): VoiceDispatcher;
 
 ---
 
-*模块契约 v1.8 · 2026-08-09 · 人设归 Hermes（PersonaProvider）+ 配置集中管理（AP-06 补充 .env 支持）+ Core Orchestrator 编排层（AP-02）+ 输入转写回调（VS-05）+ 双路分发器（VS-03）+ Function Calling 闭环（VS-06）+ VAD 与打断（VS-04）*
+*模块契约 v1.12 · 2026-08-09 · 人设归 Hermes（PersonaProvider）+ 配置集中管理（AP-06 补充 .env 支持）+ Core Orchestrator 编排层（AP-02）+ 输入转写回调（VS-05）+ 双路分发器（VS-03）+ Function Calling 闭环（VS-06）+ VAD 与打断（VS-04）+ 前端三组件 ChatUI/CaptionBar/VoiceWaveform（CL-03/04/05）+ 音频能量回调（CL-05 波形能量源）+ useChat Hook 与旧脚手架迁移（CL-07/09）*

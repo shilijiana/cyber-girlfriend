@@ -56,6 +56,8 @@ export interface UseVoiceOptions {
   onEmotion?: (e: Emotion) => void;
   /** Hermes 工作状态（VS-06：working/done） */
   onBrainStatus?: (status: 'working' | 'done', result?: string) => void;
+  /** AI 播放能量回调（0~1，CL-05 波形能量源；经 player AnalyserNode 采样） */
+  onEnergy?: (energy: number) => void;
   /** 错误回调（网关 error / 连接失败 / 麦克风拒绝） */
   onError?: (message: string) => void;
 }
@@ -178,8 +180,8 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceResult {
     setError(null);
     dispatch({ type: 'CONNECT' });
 
-    // ① 播放器（每次会话新建，随 disconnect 释放）
-    const player = createAudioPlayer();
+    // ① 播放器（每次会话新建，随 disconnect 释放；可选 onEnergy 供波形）
+    const player = createAudioPlayer({ onEnergy: optsRef.current.onEnergy });
     playerRef.current = player;
 
     // ② 麦克风授权 + 采集（失败 → error 态，不连 WS）

@@ -189,21 +189,46 @@ export interface AudioPlayer {
   readonly isPlaying: boolean;
 }
 
+/** createAudioPlayer 可选配置（契约 v1.11：CL-05 波形能量源） */
+export interface AudioPlayerOptions {
+  /** 播放能量回调（0~1 RMS，AnalyserNode 采样；未传不创建 analyser/rAF，零开销） */
+  onEnergy?: (energy: number) => void;
+}
+
 /**
  * 创建 AI 语音播放器：PCM 24kHz 帧 → AudioBuffer（24kHz）→ AudioBufferSourceNode 顺序播放。
  * 浏览器自动把 24kHz AudioBuffer 重采样到输出设备采样率，无需手动处理。
  * 队列 + onended 链式 pump：保证多帧连续播放无间隙；interrupt 立即静音。
+ * 可选 onEnergy：AnalyserNode 常驻（source → analyser → destination），
+ * rAF 轮询 getFloatTimeDomainData → computeEnergy（RMS），驱动波形（CL-05）。
  */
-export function createAudioPlayer(): AudioPlayer {
+export function createAudioPlayer(opts?: AudioPlayerOptions): AudioPlayer {
   let ctx: AudioContext | null = null;
   let current: AudioBufferSourceNode | null = null;
   let queue: Float32Array[] = [];
   let pumping = false;
   let disposed = false;
+  let analyser: AnalyserNode | null = null;
+  let rafId = 0;
+  const energyBuf = new Float32Array(2048);
 
   const ensureCtx = (): AudioContext => {
     if (!ctx) {
       ctx = new AudioContext();
+      if (opts?.onEnergy) {
+        // 能量采样链：常驻 AnalyserNode（fftSize 2048 → 时域 1024 样本/帧）
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0; // 原始 RMS，平滑交给 waveform-core emaSmooth
+        analyser.connect(ctx.destination);
+        const poll = (): void => {
+          if (disposed || !analyser) return;
+          analyser.getFloatTimeDomainData(energyBuf);
+          opts.onEnergy?.(computeEnergy(energyBuf));
+          rafId = requestAnimationFrame(poll);
+        };
+        rafId = requestAnimationFrame(poll);
+      }
     }
     return ctx;
   };
@@ -220,7 +245,7 @@ export function createAudioPlayer(): AudioPlayer {
     buffer.copyToChannel(samples as Float32Array<ArrayBuffer>, 0);
     const node = ctx.createBufferSource();
     node.buffer = buffer;
-    node.connect(ctx.destination);
+    node.connect(analyser ?? ctx.destination);
     current = node;
     pumping = true;
     node.onended = () => {
@@ -260,11 +285,13 @@ export function createAudioPlayer(): AudioPlayer {
 
     close(): void {
       disposed = true;
+      cancelAnimationFrame(rafId); // 停止能量采样轮询
       this.interrupt();
       if (ctx) {
         void ctx.close().catch(() => undefined);
         ctx = null;
       }
+      analyser = null;
     },
   };
 }

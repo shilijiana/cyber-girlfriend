@@ -10,6 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test:avatar": "node --experimental-strip-types src/components/avatar-canvas-test.ts",
     "test:avatar-hook": "node --experimental-strip-types src/hooks/use-avatar-test.ts",
+    "test:chat": "node --experimental-strip-types src/components/chat-core-test.ts",
+    "test:chat-hook": "node --experimental-strip-types src/hooks/use-chat-test.ts",
+    "test:caption": "node --experimental-strip-types src/components/caption-core-test.ts",
+    "test:waveform": "node --experimental-strip-types src/components/waveform-core-test.ts",
     "test:voice": "esbuild src/voice/voice-test.ts --bundle --format=esm --outfile=.tmp/voice-test.mjs && node .tmp/voice-test.mjs"
   },
   "dependencies": {
