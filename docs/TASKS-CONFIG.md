@@ -276,10 +276,14 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | 项 | 内容 |
 |----|------|
-| **执行入口** | Hermes 本机（`hermes -z` 指令派活）；产物写入 Hermes 侧 profile 或项目内 |
+| **执行入口** | Hermes 本机（`hermes -z` 或 `hermes kanban` 派活）；产物写入 Hermes 侧 profile 或项目内 |
 | **输入参数** | 小呆派的指令（任务背景 + 要求 + 输出位置） |
 | **预期输出** | 守则/角色卡/模板/审查报告等（按任务验收标准） |
-| **状态跟踪** | 看板 `docs/TASKS.md` §HM 模块表（小呆核对后更新） |
+| **📌 任务看板** | `docs/TASKS.md` §HM 模块表（Hermes 的任务清单与完成情况） |
+| **状态跟踪** | Hermes 完成 → 回报产出路径 + 完成情况 → 小呆核对 → 更新 HM 表 |
+| **派活模式** | ①同步（小任务）：`hermes -z` 直接派，阻塞等结果；②异步（长任务）：`hermes kanban create` 派活（不阻塞）→ 稍后 `hermes kanban show <id>` 查询 |
+| **文档即状态（老板规则）** | Hermes **每次完成任务必须更新文档**（`docs/DEVLOG.md` 追加记录 + 必要时更新 `docs/TASKS.md` HM 表）。小呆**通过查文档判断 Hermes 是否完成**（grep DEVLOG 最新条目 / HM 表状态），不阻塞等待 |
+| **派活模板** | 指令必须包含：①任务编号 ②任务要求 ③输出位置 ④「**完成后更新 docs/DEVLOG.md 追加一条记录，并更新 docs/TASKS.md HM 表状态**」 |
 
 **任务清单**：
 

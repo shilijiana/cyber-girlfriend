@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-08-09（HM 派活升级：kanban 异步模式 + 文档即状态）
+
+### 做了什么
+- 老板问：每次用 Hermes 是否新开对话？能否延续？→ 查询 Hermes 确认机制：`-z` 每次新会话但持久落库；`--resume <id>`/`--continue` 可延续；kanban 支持"派活不阻塞、稍后查"
+- 老板明确规则：**①每次完成工作让 Hermes 更新文档 ②小呆通过查文档判断是否完成（文档即状态）**
+- 产出 `docs/kanban-usage.md`：kanban 异步派活完整命令序列（create → dispatch → show/list 查询）+ 注意事项
+- WORKFLOW.md v1.5：新增 §4.6 Hermes 执行者派活规则（同步 -z / 异步 kanban / 文档即状态）
+- TASKS-CONFIG.md：HM 模块派活模式更新 + 文档即状态规则
+
+### 决策
+- HM 派活模式：小任务用 `-z` 同步；长任务用 `kanban create` 异步（不阻塞）→ 查文档/kanban show 判断完成
+- 文档即状态：Hermes 完成任务必须更新 DEVLOG + HM 表，小呆 grep 查询判断
+
+### 阻塞 / 下一步
+- HM-03~06 可按 kanban 模式派发
+- 待派：HM-03 记忆维护模板（Hermes 主动接单）
+
+---
+
 ## 2026-08-09（HM 模块建立：Hermes 作为子任务执行者）
 
 ### 做了什么

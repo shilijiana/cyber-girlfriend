@@ -144,8 +144,8 @@ config → app → persona → brain → voice-shell → avatar → client
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| HM-01 | AGENTS.md 行为守则起草 | P0 | 📋 | - | Hermes 自拟安全守则：白名单路径/禁删规则/危险命令先说明（放后端工作目录） |
-| HM-02 | 人设角色卡 card.md 起草 | P0 | 📋 | - | 小呆/知心姐姐/助手 三份卡：身份/性格/说话风格/世界观（Hermes 侧 profiles/cyber-girlfriend/personas/） |
+| HM-01 | AGENTS.md 行为守则起草 | P0 | ✅ | - | Hermes 自拟安全守则：白名单路径/禁删规则/危险命令先说明（产出 `AGENTS.md`，2026-08-09 已落盘） |
+| HM-02 | 人设角色卡 card.md 起草 | P0 | ✅ | - | 小呆/知心姐姐/助手 三份卡：身份/性格/说话风格/世界观（Hermes 侧 personas/ 已落盘，2026-08-09） |
 | HM-03 | 记忆维护收尾指令模板 | P1 | 📋 | HM-02 | 设计指令模板：新事实追加 memory.md + >20 条/3KB 压缩 + 全局事实写 MEMORY.md |
 | HM-04 | 已交付代码审查 | P1 | 📋 | - | 审查 BR-01/PS-02/AV-01/AP-02 代码：找 bug/边界问题/改进建议 |
 | HM-05 | 依赖与安全审计 | P1 | 📋 | - | 审查 package.json 依赖最小化 + tsconfig 合理性 + 潜在安全问题 |
