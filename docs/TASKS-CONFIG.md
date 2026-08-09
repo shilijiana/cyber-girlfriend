@@ -132,7 +132,7 @@ M5:  联调收尾
 | AP-02 | Core Orchestrator 编排层 | P0 | ✅ | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 取 instructions → brain 执行 → 返回结果（chat 链路实测通过） |
 | AP-03 | REST API 实现 | P1 | ✅ | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用（实测通过） |
 | AP-04 | 旧脚手架迁移重构 | P1 | ✅ | AP-01 | cybergirlfriend/server → app/server 完成；SDK/DB/TDesign 全移除（运行时依赖 13→1）；旧 server 目录清理；tsc 零错误（2026-08-09 验收） |
-| AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice` |
+| AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice`（gateway 逻辑由 VS-02 提供，本任务负责挂载与生命周期） |
 | AP-06 | 环境变量管理 | P1 | ✅ | - | `.env` 读取 DASHSCOPE_API_KEY 等（parseDotEnv + .env.example 已交付） |
 
 ---
@@ -211,12 +211,12 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| VS-01 | Qwen-Audio WS 客户端 | P0 | 📋 | PS-02, Key | 连接 realtime WS，session.update 注入 instructions（详细规格见 `docs/tasks/VS-01-qwen-audio-client.md`） |
-| VS-02 | 语音网关 gateway.ts | P0 | 📋 | VS-01 | `/ws/voice` 中继：上行 PCM16k → Qwen，下行 PCM24k → 浏览器 |
-| VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频→播放；副文本→字幕；情绪→数字人 |
-| VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，说话自动打断 |
-| VS-05 | 输入转写 | P2 | 📋 | VS-01 | enableInputAudioTranscription 开启 |
-| VS-06 | Function Calling 注册 | P0 | 📋 | BR-02, VS-01 | hermes_brain 工具注册（用 BR-02 `hermesBrainTool` schema），function_call → router |
+| VS-01 | Qwen-Audio WS 客户端 | P0 | 🔄 | PS-02, Key | 连接 realtime WS，session.update 注入 instructions（详细规格见 `docs/tasks/VS-01-qwen-audio-client.md`） |
+| VS-02 | 语音网关 gateway.ts | P0 | 📋 | VS-01 | `/ws/voice` 中继：上行 PCM16k → Qwen，下行 PCM24k → 浏览器（规格 `docs/tasks/VS-02-gateway.md`） |
+| VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频→播放；副文本→字幕；情绪→数字人（spec 见 VS-02） |
+| VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，说话自动打断（session 配 `turn_detection: {type:'server_vad'}`） |
+| VS-05 | 输入转写 | P2 | 📋 | VS-01 | `enableInputAudioTranscription: true`，用户语音转文字回调 |
+| VS-06 | Function Calling 注册 | P0 | 📋 | BR-02, VS-01 | 用 BR-02 `hermesBrainTool` schema 注册 `hermes_brain`；function_call 事件 → `extractFunctionCall` → router.handle → `buildFunctionCallOutputEvent` 写回 |
 
 ---
 
@@ -256,9 +256,9 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | CL-01 | AvatarCanvas 组件 | P0 | 📋 | AV-01 | `<video>` 播放 + idle/speaking/listening 切换 |
 | CL-02 | useAvatar Hook | P1 | 📋 | CL-01 | 播放控制 + 情绪对齐 + 轮换 |
 | CL-03 | ChatUI 组件 | P1 | 📋 | AP-03 | 聊天界面，单一人设 |
-| CL-04 | CaptionBar 组件 | P1 | 📋 | VS-03 | 字幕显示 |
-| CL-05 | VoiceWaveform 组件 | P2 | 📋 | VS-02 | 情绪波形动画 |
-| CL-06 | useVoice Hook | P0 | 📋 | VS-02 | 语音状态机：采集/播放/打断 |
+| CL-04 | CaptionBar 组件 | P1 | 📋 | VS-03 | 字幕显示（订阅 subtitle 事件） |
+| CL-05 | VoiceWaveform 组件 | P2 | 📋 | VS-02 | 情绪波形动画（AudioAnalyser 能量驱动） |
+| CL-06 | useVoice Hook | P0 | 📋 | VS-02 | 语音状态机：采集/播放/打断（连 /ws/voice，调 audio.ts） |
 | CL-07 | useChat Hook | P2 | 📋 | AP-03 | 文本聊天（调试/降级） |
 | CL-08 | audio.ts 工具 | P1 | 📋 | - | getUserMedia 采集、播放、能量分析 |
 | CL-09 | 旧脚手架迁移 | P1 | 📋 | CL-03 | cybergirlfriend/src → client/ |

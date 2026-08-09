@@ -39,7 +39,7 @@
 |--------|------|------|------|
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
 | **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
-| **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 🔄 进行中 | VS-01 已出卡（依赖全齐，连接实测通过） |
+| **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 🔄 进行中 | VS-01 已出卡（依赖全齐）；VS-02 规格就绪（依赖 VS-01）；VS-03~06 + AP-05 验收标准已细化 |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 完成，AV-02~04 待执行 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
 | **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成 |
@@ -176,17 +176,17 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | VS-01 | Qwen-Audio Realtime WS 客户端 | P0 | 🔄 | PS-02, API Key | 连接 `wss://dashscope.aliyuncs.com/api-ws/v1/realtime?model=qwen-audio-3.0-realtime-flash`，session.update 注入 instructions（规格 `docs/tasks/VS-01-qwen-audio-client.md`，连接已实测通过） |
-| VS-02 | 语音网关 gateway.ts | P0 | 📋 | VS-01 | `/ws/voice` 中继：上行 PCM 16k → Qwen，下行 PCM 24k → 浏览器 |
-| VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频流 → 播放；副文本 → 字幕；情绪事件 → 数字人触发 |
-| VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，用户说话时自动打断 AI |
-| VS-05 | 输入转写 | P2 | 📋 | VS-01 | `enableInputAudioTranscription` 开启，用户语音转文字 |
-| VS-06 | Function Calling 注册 | P0 | 📋 | BR-02, VS-01 | `hermes_brain` 工具注册到 Qwen session，function_call → function-router |
+| VS-02 | 语音网关 gateway.ts | P0 | 📋 | VS-01 | `/ws/voice` 中继：上行 PCM 16k → Qwen，下行 PCM 24k → 浏览器（规格 `docs/tasks/VS-02-gateway.md`） |
+| VS-03 | 双路分发 | P1 | 📋 | VS-02 | 音频流 → 播放；副文本 → 字幕；情绪事件 → 数字人触发（spec 见 VS-02 §3） |
+| VS-04 | VAD 与打断 | P1 | 📋 | VS-02 | server_vad 模式，用户说话自动打断 AI（session 配 `turn_detection:{type:'server_vad'}`） |
+| VS-05 | 输入转写 | P2 | 📋 | VS-01 | `enableInputAudioTranscription:true`，用户语音转文字回调 |
+| VS-06 | Function Calling 注册 | P0 | 📋 | BR-02, VS-01 | 用 BR-02 `hermesBrainTool` schema 注册 `hermes_brain`；function_call → `extractFunctionCall` → router.handle → `buildFunctionCallOutputEvent` 写回 |
 
 ### app · 应用壳（M2 补充）
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice`，连接/断开/消息处理 |
+| AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice`，连接/断开/消息处理（gateway 逻辑由 VS-02 提供，本任务负责挂载与生命周期） |
 | AP-06 | 环境变量管理 | P1 | ✅ | - | `.env` 读取 `DASHSCOPE_API_KEY` / `VOICE_PROVIDER` / `HERMES_PATH`（loader.ts 已实现 parseDotEnv + .env.local 覆盖，`.env.example` 已交付） |
 
 ---
@@ -223,9 +223,9 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | CL-03 | ChatUI 组件 | P1 | 📋 | AP-03 | 聊天界面，收敛单一人设，文字聊天可用 |
-| CL-04 | CaptionBar 组件 | P1 | 📋 | VS-03 | 字幕显示，S2S 副文本驱动 |
+| CL-04 | CaptionBar 组件 | P1 | 📋 | VS-03 | 字幕显示，S2S 副文本驱动（订阅 subtitle 事件） |
 | CL-05 | VoiceWaveform 组件 | P2 | 📋 | VS-02 | 情绪波形动画，AudioAnalyser 能量驱动 |
-| CL-06 | useVoice Hook | P0 | 📋 | VS-02 | 语音会话状态机：采集/播放/打断/状态 |
+| CL-06 | useVoice Hook | P0 | 📋 | VS-02 | 语音会话状态机：采集/播放/打断/状态（连接 /ws/voice，调 audio.ts） |
 | CL-07 | useChat Hook | P2 | 📋 | AP-03 | 文本聊天（调试/降级） |
 | CL-08 | audio.ts 工具 | P1 | 📋 | - | getUserMedia 采集、播放、音频能量分析 |
 | CL-09 | 旧脚手架前端迁移 | P1 | 📋 | CL-03 | cybergirlfriend/src → client/，多 Agent → 单一人设 |
