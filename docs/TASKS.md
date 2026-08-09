@@ -221,7 +221,6 @@ config → app → persona → brain → voice-shell → avatar → client
 | 任务 | 状态 | 说明 |
 |------|------|------|
 | 测试框架与 CI（Vitest/Playwright/GitHub Actions） | ⏸ 暂停 | 新架构落地后按新结构重写 |
-| 环境搭建（npm install / 素材下载 / 工具链） | ⏸ 永久暂停 | 老板明确：不是本项目负责（ADR-005） |
 | better-sqlite3 → node:sqlite 切换 | 🗑 废弃 | 无数据库（ADR-006 取代 ADR-003） |
 | CodeBuddy Agent SDK 集成 | 🗑 废弃 | 改为自研 Core（ADR-002） |
 | 记忆系统（memory/）与数据库（data/） | 🗑 废弃 | 事务与记忆归 Hermes（ADR-006） |

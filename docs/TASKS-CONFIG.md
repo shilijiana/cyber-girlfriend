@@ -29,10 +29,10 @@
 | # | 红线 |
 |---|------|
 | 1 | 🚫 无数据库、无持久化、无本地记忆（事务/记忆归 Hermes） |
-| 2 | 🚫 环境搭建永久暂停：不执行 npm install / 依赖安装 |
-| 3 | 🚫 不在本模块外写代码，只做指派模块 |
-| 4 | 🔧 密钥统一走 `config/loader.ts`，不硬编码 |
-| 5 | 🔧 接口变更必须先改 `docs/architecture/module-contracts.md` 再写代码 |
+| 2 | 🚫 不在本模块外写代码，只做指派模块 |
+| 3 | 🔧 密钥统一走 `config/loader.ts`，不硬编码 |
+| 4 | 🔧 接口变更必须先改 `docs/architecture/module-contracts.md` 再写代码 |
+| 5 | 🔧 依赖最小化：运行时 5-6 个纯 JS 依赖，零原生编译（ADR-007） |
 
 ---
 

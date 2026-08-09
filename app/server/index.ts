@@ -1,0 +1,70 @@
+/**
+ * app/server/index.ts —— Express 装配（AP-01 骨架）
+ *
+ * 职责：中间件、REST 路由挂载、SSE 骨架、条件 listen（测试友好）。
+ * 使用 config/loader.ts 的 config 导出驱动 host/port 与脱敏日志。
+ *
+ * 模块边界：仅应用壳，不 import persona/brain/voice-shell/avatar。
+ */
+import express from 'express';
+import type { Express } from 'express';
+import { config, maskKey } from '../../config/loader';
+import { createApiRouter } from './routes';
+
+export function createApp(): Express {
+  const app = express();
+
+  // 中间件
+  app.use(express.json());
+
+  // REST API（/api 前缀）
+  app.use('/api', createApiRouter(config));
+
+  // SSE 骨架：/api/events 事件通道（AP-02 Orchestrator 后续在此推送状态/字幕/情绪）
+  setupSse(app);
+
+  return app;
+}
+
+/**
+ * SSE 骨架：单客户端事件流 + 心跳防代理超时 + close 清理。
+ * 供后续 Orchestrator 推送 {type:'brain'|'subtitle'|'emotion'} 等事件。
+ */
+function setupSse(app: Express): void {
+  app.get('/api/events', (req, res) => {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // 首帧：告知客户端连接就绪
+    res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
+
+    // 心跳注释行，避免空闲连接被代理/网关断开
+    const heartbeat = setInterval(() => {
+      res.write(`: heartbeat\n\n`);
+    }, 15_000);
+
+    req.on('close', () => clearInterval(heartbeat));
+  });
+}
+
+export const app = createApp();
+
+// 仅直接运行时启动（集成测试 import app 时不占端口）
+const isDirectRun =
+  process.argv[1] &&
+  (process.argv[1].endsWith('index.ts') || process.argv[1].endsWith('index.js'));
+
+if (isDirectRun) {
+  const { port, host } = config.server;
+  app.listen(port, host, () => {
+    console.log(`[app] 赛博女友 API 已启动 → http://${host}:${port}`);
+    console.log(
+      `[app] voice: ${config.dashscope.model} | dashscope key: ${maskKey(config.dashscope.apiKey)}`,
+    );
+    console.log(`[app] SSE 通道: /api/events | REST: /api/*`);
+  });
+}
+
+export default app;

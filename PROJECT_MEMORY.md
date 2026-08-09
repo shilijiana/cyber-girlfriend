@@ -114,12 +114,12 @@ cybergirlfriend/
 - [x] **架构变更评估**（DESIGN §17）：ST 式核心 + Hermes 可行性分析 ✅
 - [x] **核心架构定稿**（2026-08-09 老板拍板）：云端 Qwen-Audio 语音壳 + **Hermes 大脑**（混合架构，方案 v2 已出，Hermes 已装 v0.20.0）
 - [x] **整体架构设计任务**（2026-08-09）：产出 `docs/architecture/overall-architecture.md`（架构总纲）+ 按任务模块建目录 + ADR（6 条）+ 模块契约（module-contracts.md）
-- [x] **🚫 环境搭建永久暂停**（2026-08-09 老板明确指示）：环境搭建不是本项目负责的事，永久暂停；不再执行/评估/维护任何依赖安装与工具链配置
+- [x] **🔧 环境搭建恢复**（2026-08-09 老板撤销暂停）：~~环境搭建永久暂停~~已撤销（ADR-005 Deprecated），子任务可按需执行依赖安装与工具链配置，交付可运行代码
 - [x] **🔧 纯交互界面收敛**（2026-08-09 老板明确）：**删除记忆系统与数据库**（memory/ data/ 目录已删）——记忆由 Hermes 负责，赛博女友只做交互界面与简单问答，具体事务全部交给 Hermes（ADR-006；ADR-003 作废）
 - [ ] **S2S 模型选型定稿**：Qwen-Audio-3.0-Realtime-Flash 主选（调研✅，待老板确认 + API Key 实测）
 - [ ] **Seeduplex 邀测申请**（并行，seed.bytedance.com，达标则升级主选）
 - [ ] **老板拍板剩余决策**：路径 A/B（默认 A Function Calling 中转）、Hermes 后端模型（DeepSeek/OpenAI/本地 Ollama）、小呆人设内容、走 Hermes 判定规则
-- [ ] **方向确认后的 M1 重构**（~~测试框架/CI 暂停~~，~~环境搭建永久暂停~~，~~数据库切换取消~~）：
+- [ ] **方向确认后的 M1 重构**（~~测试框架/CI 暂停~~，~~环境搭建永久暂停~~已撤销，~~数据库切换取消~~）：
   - [ ] 去掉 @tencent-ai/agent-sdk，实现自研角色卡 + Prompt 组装器 + LLM 客户端
   - [ ] **无本地数据库**（原 better-sqlite3/node:sqlite 切换取消）
   - [ ] Function Router（chat vs. work）+ Hermes Runner（子进程调用）
