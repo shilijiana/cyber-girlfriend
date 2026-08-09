@@ -5,6 +5,24 @@
 
 ---
 
+## 2026-08-09（CC 模块建立：代码审查/依赖审计转 Claude Code）
+
+### 做了什么
+- 老板明确：代码审查（HM-04）与依赖审计（HM-05）**非 Hermes 长处**，转 **Claude Code** 执行
+- 产出两份**自包含任务文档**（Claude Code 直接执行）：
+  - `docs/tasks/CC-01-code-review.md`：审查 8 个核心文件 → 报告 `docs/reviews/code-review-2026-08-09.md`
+  - `docs/tasks/CC-02-dependency-audit.md`：依赖/漏洞/配置/密钥审计 → 报告 `docs/reviews/dependency-audit-2026-08-09.md`
+- TASKS.md / TASKS-CONFIG.md：HM-04/05 标 ➡️ 转 CC，新增 **CC 模块**（Claude Code 执行者）
+
+### 决策
+- 分工原则：**Hermes = 执行型**（守则/角色卡/记忆模板）｜**Claude Code = 深度分析型**（审查/审计）｜子任务框 = 开发型
+- CC 任务文档自包含（只读一份即可执行），只诊断不改码
+
+### 阻塞 / 下一步
+- 老板后续让 Claude Code 执行 CC-01/CC-02 → 报告落 docs/reviews/ → 小呆核对更新 CC 表
+
+---
+
 ## 2026-08-09（HM-03 完成：人设记忆维护模板，对齐 Hermes 记忆机制）
 
 ### 做了什么

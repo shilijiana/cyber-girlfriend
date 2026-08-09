@@ -80,6 +80,9 @@ Express 后端（Core Orchestrator，自研 ~400 行）
 | 详细设计（迭代历史） | `DESIGN.md` |
 | S2S 语音选型调研 | `docs/research/Qwen-Audio-3.0-Realtime-调研报告.md` |
 | Hermes 功能实现方法 | `docs/hermes-integration-spec.md`（给 Hermes agent 评估用） |
+| Hermes 记忆维护模板 | `docs/hm-03-memory-template.md`（HM-03 产出） |
+| 异步派活参考 | `docs/kanban-usage.md`（Hermes kanban 用法） |
+| Claude Code 任务卡 | `docs/tasks/CC-01-code-review.md`、`docs/tasks/CC-02-dependency-audit.md` |
 | 备选方案对比 | `docs/research/Qwen3-Omni-调研笔记.md`、`docs/research/豆包Seeduplex-调研报告.md` |
 | 当前任务与进度 | `docs/TASKS.md` |
 | 开发日志 | `docs/DEVLOG.md` |

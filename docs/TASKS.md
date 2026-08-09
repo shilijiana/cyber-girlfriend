@@ -147,9 +147,22 @@ config → app → persona → brain → voice-shell → avatar → client
 | HM-01 | AGENTS.md 行为守则起草 | P0 | ✅ | - | Hermes 自拟安全守则：白名单路径/禁删规则/危险命令先说明（产出 `AGENTS.md`，2026-08-09 已落盘） |
 | HM-02 | 人设角色卡 card.md 起草 | P0 | ✅ | - | 小呆/知心姐姐/助手 三份卡：身份/性格/说话风格/世界观（Hermes 侧 personas/ 已落盘，2026-08-09） |
 | HM-03 | 记忆维护收尾指令模板 | P1 | ✅ | HM-02 | 设计指令模板：新事实追加 memory.md + >20 条/3KB 压缩 + 全局事实写 MEMORY.md（产出 `docs/hm-03-memory-template.md`，对齐 Hermes 记忆机制，2026-08-09） |
-| HM-04 | 已交付代码审查 | P1 | 📋 | - | 审查 BR-01/PS-02/AV-01/AP-02 代码：找 bug/边界问题/改进建议 |
-| HM-05 | 依赖与安全审计 | P1 | 📋 | - | 审查 package.json 依赖最小化 + tsconfig 合理性 + 潜在安全问题 |
+| HM-04 | 已交付代码审查 | P1 | ➡️ 转 CC | - | 老板定：代码审查非 Hermes 长处，转 **Claude Code** 执行（任务文档 `docs/tasks/CC-01-code-review.md`） |
+| HM-05 | 依赖与安全审计 | P1 | ➡️ 转 CC | - | 老板定：依赖审计非 Hermes 长处，转 **Claude Code** 执行（任务文档 `docs/tasks/CC-02-dependency-audit.md`） |
 | HM-06 | 文档一致性检查 | P2 | 📋 | - | 对照 TASKS-CONFIG 检查三文档（TASKS/BLUEPRINT/DEVLOG）是否同步 |
+
+> 📌 **HM-04/05 已转 Claude Code**（老板 2026-08-09）：Hermes 擅长的执行型任务（守则/角色卡/记忆模板）已完成；代码审查与依赖审计这类深度分析交给 Claude Code，任务卡见 `docs/tasks/`。
+
+### Claude Code 执行者（CC）—— 深度分析类任务
+
+> **模块说明**：CC = Claude Code 作为独立执行者承接的**深度分析类任务**（代码审查/依赖审计），老板 2026-08-09 明确：这类任务非 Hermes 长处，由 Claude Code 执行。
+> **执行方式**：老板把任务文档（`docs/tasks/CC-XX-*.md`）交给 Claude Code，它直接按文档执行（自包含，无需翻阅其他文档）。
+> **任务文档**：`docs/tasks/CC-01-code-review.md`（代码审查）、`docs/tasks/CC-02-dependency-audit.md`（依赖审计）
+
+| ID | 任务 | 优先级 | 状态 | 验收标准 | 任务文档 |
+|----|------|--------|------|----------|----------|
+| CC-01 | 已交付代码审查 | P1 | 📋 | 审查 BR-01/PS-02/AV-01/AP-02/AP-03 代码，输出审查报告（bug/边界/安全/规范/建议） | `docs/tasks/CC-01-code-review.md` |
+| CC-02 | 依赖与安全审计 | P1 | 📋 | 审查 package.json 最小化 + tsconfig + npm audit 漏洞 + 建议，输出审计报告 | `docs/tasks/CC-02-dependency-audit.md` |
 
 ---
 

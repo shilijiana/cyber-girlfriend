@@ -50,7 +50,8 @@
 | **avatar** | AV | 数字人：素材匹配引擎（AV-01 完成） | 🔄 AV-01 完成 |
 | **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
 | **docs** | DC | 文档体系：三文档工作流（本文件属于此模块） | ✅ 完成 |
-| **Hermes 执行者** | HM | Hermes 作为子任务执行者承接的任务（守则/角色卡/记忆模板/审查/审计） | 📋 待派活 |
+| **Hermes 执行者** | HM | Hermes 作为子任务执行者承接的任务（守则/角色卡/记忆模板，审查类已转 CC） | 🔄 HM-01/02/03 完成 |
+| **Claude Code 执行者** | CC | 深度分析类任务（代码审查/依赖审计），只诊断不改码 | 📋 待执行 |
 
 ---
 
@@ -289,12 +290,31 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | ID | 任务 | 优先级 | 状态 | 验收标准 |
 |----|------|--------|------|----------|
-| HM-01 | AGENTS.md 行为守则起草 | P0 | 📋 | 白名单路径/禁删规则/危险命令先说明，放后端工作目录 |
-| HM-02 | 人设角色卡 card.md 起草 | P0 | 📋 | 小呆/知心姐姐/助手三份：身份/性格/说话风格/世界观 |
+| HM-01 | AGENTS.md 行为守则起草 | P0 | ✅ | 白名单路径/禁删规则/危险命令先说明（产出 `AGENTS.md`） |
+| HM-02 | 人设角色卡 card.md 起草 | P0 | ✅ | 小呆/知心姐姐/助手三份：身份/性格/说话风格/世界观 |
 | HM-03 | 记忆维护收尾指令模板 | P1 | ✅ | 新事实追加 memory.md + 超限压缩 + 全局事实写 MEMORY.md（产出 `docs/hm-03-memory-template.md`） |
-| HM-04 | 已交付代码审查 | P1 | 📋 | BR-01/PS-02/AV-01/AP-02 审查报告：bug/边界/改进建议 |
-| HM-05 | 依赖与安全审计 | P1 | 📋 | package.json 最小化 + tsconfig 合理性 + 安全风险 |
+| HM-04 | 已交付代码审查 | P1 | ➡️ 转 CC | 老板定：转 **Claude Code**（`docs/tasks/CC-01-code-review.md`） |
+| HM-05 | 依赖与安全审计 | P1 | ➡️ 转 CC | 老板定：转 **Claude Code**（`docs/tasks/CC-02-dependency-audit.md`） |
 | HM-06 | 文档一致性检查 | P2 | 📋 | 三文档与 TASKS-CONFIG 同步性检查 |
+
+> 📌 **HM-04/05 转 Claude Code**（老板 2026-08-09）：深度分析类任务非 Hermes 长处，转 CC 执行。
+
+---
+
+### 模块 CC · Claude Code 执行者（深度分析类任务）
+
+| 项 | 内容 |
+|----|------|
+| **执行入口** | 老板把任务文档交给 Claude Code（`docs/tasks/CC-XX-*.md`，自包含可直接执行） |
+| **任务文档** | `docs/tasks/CC-01-code-review.md`（代码审查）、`docs/tasks/CC-02-dependency-audit.md`（依赖审计） |
+| **职责边界** | 深度分析（审查/审计），只诊断不改码；产出报告到 `docs/reviews/` |
+
+**任务清单**：
+
+| ID | 任务 | 优先级 | 状态 | 验收标准 |
+|----|------|--------|------|----------|
+| CC-01 | 已交付代码审查 | P1 | 📋 | 覆盖 8 个核心文件，报告含分级问题+合规检查，输出 `docs/reviews/code-review-2026-08-09.md` |
+| CC-02 | 依赖与安全审计 | P1 | 📋 | 依赖清单分析 + npm audit + 配置/密钥检查，输出 `docs/reviews/dependency-audit-2026-08-09.md` |
 
 ---
 
