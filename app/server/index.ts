@@ -24,6 +24,7 @@ import {
   readActivePersonaId,
 } from '../../persona/file-persona-provider.ts';
 import { brainRunner } from '../../brain/hermes-runner.ts';
+import { qwenFallbackRunner } from '../../brain/qwen-fallback.ts';
 
 // 模块级单例：createApp（REST）与 WS 启动共用，保证活跃人设状态一致（AP-05）
 const personaProvider = createFilePersonaProvider({
@@ -32,6 +33,7 @@ const personaProvider = createFilePersonaProvider({
 const orchestrator = createOrchestrator({
   personaProvider,
   brainRunner,
+  fallbackRunner: qwenFallbackRunner, // M5-02：Hermes 不可用 → 降级纯 Qwen 文本对话
   defaultPersonaId: readActivePersonaId(config.hermes.personasDir), // 重启后沿用 active.txt
 });
 

@@ -26,10 +26,11 @@ export interface ChatRequest {
 
 /** 文本聊天结果（契约 §2.7） */
 export interface ChatResult {
-  reply: string;       // 最终回复文本（Hermes 结果或降级提示）
+  reply: string;       // 最终回复文本（Hermes 结果或 Qwen 降级回答或友好提示）
   personaId: string;   // 实际使用的人设 id
-  ok: boolean;         // 链路是否成功（brain 执行失败为 false）
+  ok: boolean;         // 链路是否成功（brain 失败但 Qwen 降级成功 → true；双重失败 → false）
   durationMs: number;  // 总耗时
+  degraded?: boolean;  // M5-02：true = Hermes 失败降级 Qwen 回答（ok 同时为 true）
   brain?: BrainResult; // brain 原始结果（§2.3），失败时带 error
 }
 
@@ -59,6 +60,8 @@ export const DEFAULT_PERSONA_ID = 'xiaodai';
 export interface OrchestratorDeps {
   personaProvider: PersonaProvider;
   brainRunner: BrainRunner;
+  /** M5-02：Hermes 失败时的 Qwen 降级通道（可选；未注入则失败只返回友好提示） */
+  fallbackRunner?: BrainRunner;
   /** 初始活跃人设 id，缺省 DEFAULT_PERSONA_ID */
   defaultPersonaId?: string;
 }
@@ -67,11 +70,13 @@ export interface OrchestratorDeps {
 class CoreOrchestratorImpl implements CoreOrchestrator {
   private readonly personaProvider: PersonaProvider;
   private readonly brainRunner: BrainRunner;
+  private readonly fallbackRunner?: BrainRunner;
   private activePersonaId: string;
 
   constructor(deps: OrchestratorDeps) {
     this.personaProvider = deps.personaProvider;
     this.brainRunner = deps.brainRunner;
+    this.fallbackRunner = deps.fallbackRunner;
     this.activePersonaId = deps.defaultPersonaId ?? DEFAULT_PERSONA_ID;
   }
 
@@ -90,7 +95,32 @@ class CoreOrchestratorImpl implements CoreOrchestrator {
       context: instructions,
     });
 
-    // ④ 收口：brain 失败不抛错，降级为友好提示（契约 §2.7 错误处理）
+    // ④ Hermes 失败 → M5-02 降级：走 Qwen 文本对话（纯 Qwen 回答，保持人设）
+    if (!result.ok && this.fallbackRunner) {
+      const fallback = await this.fallbackRunner.run({
+        instruction: req.message,
+        context: instructions,
+      });
+      if (fallback.ok) {
+        return {
+          reply: fallback.output,
+          personaId,
+          ok: true,
+          degraded: true, // 标记：本次回答来自 Qwen 降级（Hermes 不可用）
+          durationMs: Date.now() - started,
+          brain: result,
+        };
+      }
+      return {
+        reply: `（大脑开小差了：${fallback.error ?? '未知错误'}，稍后再试试？）`,
+        personaId,
+        ok: false,
+        durationMs: Date.now() - started,
+        brain: result,
+      };
+    }
+
+    // ⑤ 收口：brain 失败且无降级通道 → 友好提示；成功 → 原文
     return {
       reply: result.ok ? result.output : `（大脑开小差了：${result.error ?? '未知错误'}，稍后再试试？）`,
       personaId,

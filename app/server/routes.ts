@@ -152,12 +152,14 @@ export function createApiRouter(config: AppConfig, orchestrator: CoreOrchestrato
 
     try {
       const result = await orchestrator.chat(chatReq);
-      // 契约 v1.2：brain 业务失败（ok:false）走 HTTP 200，reply 为友好降级提示
+      // 契约 v1.13：brain 业务失败（ok:false）走 HTTP 200，reply 为友好降级提示；
+      // degraded=true 表示 Hermes 失败降级 Qwen 回答成功（ok:true + degraded:true）
       res.json({
         reply: result.reply,
         personaId: result.personaId,
         ok: result.ok,
         durationMs: result.durationMs,
+        ...(result.degraded !== undefined ? { degraded: result.degraded } : {}),
       });
     } catch (err) {
       // 编排层异常（如 persona 不存在）→ 契约 §3.3 转 4xx/5xx

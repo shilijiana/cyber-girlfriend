@@ -24,6 +24,11 @@
 > - **CL-07 useChat**（`client/src/hooks/use-chat.ts`）：文本聊天 React Hook（调试/降级链路），**复用 CL-03 `chat-core.ts` 纯函数核心**（不重复实现消息/请求逻辑，防双模型漂移）。暴露 `UseChatResult`：`messages`（`ChatMessage[]`，chat-core 模型）/ `isLoading` / `error` / `inputValue` / `setInputValue` / `sendMessage(text?)` / `clear()`；`UseChatOptions` 支持 `url`（默认 `/api/chat`）/ `personaId?` / `onError?` / `onReply?`（App 集成：驱动字幕条）。消息流：追加 user + pending 占位 → `sendChatMessage`（内部兜底网络/HTTP 失败）→ `resolvePending` 填充。零持久化、零第三方。自检 21/21 + tsc 零错误 + vite build 通过。
 > - **CL-09 旧脚手架迁移**（cybergirlfriend/src → client/，多 Agent → 单一人设）：零依赖重写 `ChatInput.tsx`（textarea 自适应 + Enter 发送 + loading 禁用）与 `ChatMessages.tsx`（气泡 + 打字占位 + 时间戳 + 自动滚动 + 空态），样式类名对齐 CL-03/04/05 index.css（.chat-list/.chat-msg/.chat-bubble/.chat-typing/.chat-input-row）；ChatUI 组合两者 + useChat 作为消息源；**不迁移**多 Agent/会话/权限体系组件（Sidebar/NewChatDialog/PermissionDialog/AgentConfigDialog/SettingsPage/ToolCallsCollapse/useAgents/useModels/useSessions 等，新架构无对应需求，旧目录 `cybergirlfriend/` 保留归档待老板确认清理）。
 > - **CL-03 ChatUI 补充**：`ChatUI` 新增 `onReply?: (result: { ok, reply }) => void` prop（透传 useChat.onReply，App 集成字幕用）；`chat-core-test.ts` 修复 IIFE 捕获变量 TS 控制流推断问题（`let captured | null` → `const captured` 对象引用，tsc 零错误）。
+> **v1.13 变更**（2026-08-09）：**M5-02 错误处理与降级**——
+>
+> - **Hermes 不可用 → 纯 Qwen 降级**：新增 `brain/qwen-fallback.ts`（`runQwenChat`，实现 `BrainRunner` 接口）——Hermes 子进程不可用/超时/失败时，orchestrator 降级调用 DashScope OpenAI 兼容 `chat/completions`（`qwen-plus` 文本模型，Bearer 鉴权），以人设 instructions 为 system 提示、用户消息为 user 输入，返回 Qwen 纯文本回答。零第三方依赖（Node 22 全局 fetch），密钥走 config（红线 3）。
+> - **§2.7 `ChatResult` 新增 `degraded?: boolean`**：`true` = Hermes 失败后降级 Qwen 回答成功（`ok:true` + `degraded:true`）；双重失败（Hermes 与 Qwen 均不可用）维持 `ok:false` + 友好提示。§2.1 `/api/chat` 响应透传 `degraded` 字段。
+> - **素材缺失 → Live2D 兜底**：已由 CL-01（AvatarCanvas 内置 SVG 卡通兜底）覆盖——素材库为空/选片返回 null/加载失败 → 显示占位不黑屏，`useAvatar.hasAssets` 供上层感知。M5-02 验证通过，无需契约变更。
 
 ---
 
@@ -57,7 +62,7 @@ client/  ──WS──▶  app/server（Core Orchestrator）  ──调用─�
 | 方法 | 路径 | 请求 | 响应 | 说明 |
 |------|------|------|------|------|
 | GET | /api/health | - | `{status:"ok"}` | 健康检查 |
-| POST | /api/chat | `{message, personaId?}` | `{reply, personaId, ok, durationMs}` | 文本聊天（调试/降级），走 Core Orchestrator（§2.7） |
+| POST | /api/chat | `{message, personaId?}` | `{reply, personaId, ok, durationMs, degraded?}` | 文本聊天（调试/降级），走 Core Orchestrator（§2.7）。`degraded:true` = Hermes 不可用降级 Qwen 回答（M5-02） |
 | GET | /api/brain/status | - | `{available, version}` | Hermes 可用性 |
 | GET | /api/avatar/status | - | `{engine, clipCount}` | 数字人引擎状态 |
 
@@ -268,8 +273,9 @@ export interface ChatRequest {
 export interface ChatResult {
   reply: string;         // 最终回复文本（Hermes 结果或降级提示）
   personaId: string;     // 实际使用的人设 id
-  ok: boolean;           // 链路是否成功（brain 执行失败为 false）
+  ok: boolean;           // 链路是否成功（brain 执行失败但 Qwen 降级成功 → true；双重失败 → false）
   durationMs: number;    // 总耗时
+  degraded?: boolean;    // M5-02：true = Hermes 失败降级 Qwen 回答（ok 同时为 true）
   brain?: BrainResult;   // brain 原始结果（§2.3），失败时带 error
 }
 
@@ -291,7 +297,7 @@ export interface CoreOrchestrator {
 
 **依赖注入**：`createOrchestrator({ personaProvider, brainRunner })` 只依赖 §2.3 `BrainRunner` 与 §2.4 `PersonaProvider` 抽象接口；PersonaProvider 的具体实现由装配处提供（当前为 app 内嵌 `DefaultPersonaProvider` 占位，PS-02 交付后替换，zero 代码改动）。
 
-**错误处理**：brain 执行失败（超时/不可用）不抛错——`ChatResult.ok = false`，`reply` 为友好降级提示，由 REST 层转 HTTP 200（业务失败）而非 5xx（契约 §3.3 的上层统一转换）。
+**错误处理**：brain 执行失败（超时/不可用）不抛错——降级调用 Qwen 文本对话（`brain/qwen-fallback.ts`，§2.3 同款 `BrainRunner` 接口）：降级成功 → `ChatResult.ok = true` + `degraded = true`，`reply` 为 Qwen 回答；双重失败 → `ok = false`，`reply` 为友好降级提示。由 REST 层转 HTTP 200（业务失败）而非 5xx（契约 §3.3 的上层统一转换）。
 
 ### 2.8 voice-shell ↔ brain（FunctionRouter，BR-02 新增）
 
@@ -431,4 +437,4 @@ export function createVoiceDispatcher(): VoiceDispatcher;
 
 ---
 
-*模块契约 v1.12 · 2026-08-09 · 人设归 Hermes（PersonaProvider）+ 配置集中管理（AP-06 补充 .env 支持）+ Core Orchestrator 编排层（AP-02）+ 输入转写回调（VS-05）+ 双路分发器（VS-03）+ Function Calling 闭环（VS-06）+ VAD 与打断（VS-04）+ 前端三组件 ChatUI/CaptionBar/VoiceWaveform（CL-03/04/05）+ 音频能量回调（CL-05 波形能量源）+ useChat Hook 与旧脚手架迁移（CL-07/09）*
+*模块契约 v1.13 · 2026-08-09 · 人设归 Hermes（PersonaProvider）+ 配置集中管理（AP-06 补充 .env 支持）+ Core Orchestrator 编排层（AP-02）+ 输入转写回调（VS-05）+ 双路分发器（VS-03）+ Function Calling 闭环（VS-06）+ VAD 与打断（VS-04）+ 前端三组件 ChatUI/CaptionBar/VoiceWaveform（CL-03/04/05）+ 音频能量回调（CL-05 波形能量源）+ useChat Hook 与旧脚手架迁移（CL-07/09）+ 错误处理与降级（M5-02：Hermes 不可用→纯 Qwen 降级 + 素材缺失→Live2D 兜底）*
