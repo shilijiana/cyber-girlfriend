@@ -1,9 +1,10 @@
 # 模块接口契约（Module Contracts）
 
 > **文档定位**：赛博女友各任务模块之间的**开发契约**——定义每个模块暴露的接口、依赖的接口、消息格式与协议，确保各模块并行开发互不冲突。
-> **文档日期**：2026-08-09 · 版本 v1.1
+> **文档日期**：2026-08-09 · 版本 v1.2
 > **配套**：`docs/architecture/overall-architecture.md`（架构总纲）、`docs/adr/`（决策记录）
 > **v1.1 变更**（老板 2026-08-09）：**删除 MemoryStore 与 Db 接口**——赛博女友无记忆、无数据库，事务与记忆由 Hermes 负责。
+> **v1.2 变更**（2026-08-09）：新增 §2.7 Core Orchestrator（AP-02 编排层）与 `/api/chat` 契约细化。
 
 ---
 
@@ -37,7 +38,7 @@ client/  ──WS──▶  app/server（Core Orchestrator）  ──调用─�
 | 方法 | 路径 | 请求 | 响应 | 说明 |
 |------|------|------|------|------|
 | GET | /api/health | - | `{status:"ok"}` | 健康检查 |
-| POST | /api/chat | `{message}` | `{reply}` | 文本聊天（调试/降级） |
+| POST | /api/chat | `{message, personaId?}` | `{reply, personaId, ok, durationMs}` | 文本聊天（调试/降级），走 Core Orchestrator（§2.7） |
 | GET | /api/brain/status | - | `{available, version}` | Hermes 可用性 |
 | GET | /api/avatar/status | - | `{engine, clipCount}` | 数字人引擎状态 |
 
@@ -162,6 +163,45 @@ export interface ClipMatcher {
 | `Db`（data/db.ts） | 无本地数据库，零持久化 |
 | `PersonaBuilder` + `CharacterCard` | v1.2：人设归 Hermes 维护，改为 `PersonaProvider` 抽象接口 |
 
+### 2.7 app/server 内部编排层（Core Orchestrator，AP-02 新增）
+
+> **v1.2 补充（AP-02）**：文本聊天链路的编排核心，把 persona（取 instructions）+ brain（执行）串成一条可验证的链路。仅存在于 app/server 内部，不对 client 暴露（client 只走 REST/WS）。
+
+```ts
+// app/server/orchestrator.ts
+export interface ChatRequest {
+  message: string;       // 用户文本消息（必填）
+  personaId?: string;    // 可选：指定人设，缺省用当前活跃人设
+}
+
+export interface ChatResult {
+  reply: string;         // 最终回复文本（Hermes 结果或降级提示）
+  personaId: string;     // 实际使用的人设 id
+  ok: boolean;           // 链路是否成功（brain 执行失败为 false）
+  durationMs: number;    // 总耗时
+  brain?: BrainResult;   // brain 原始结果（§2.3），失败时带 error
+}
+
+export interface SwitchResult {
+  ok: boolean;
+  persona?: PersonaInfo; // 切换成功时返回新活跃人设摘要
+  error?: string;
+}
+
+export interface CoreOrchestrator {
+  /** 文本聊天主流程：取人设 instructions → brain 执行 → 返回结果 */
+  chat(req: ChatRequest): Promise<ChatResult>;
+  /** 切换活跃人设（先校验存在性，仅内存状态，无持久化） */
+  switchPersona(id: string): Promise<SwitchResult>;
+  /** 当前活跃人设 id（初始为默认人设） */
+  getActivePersonaId(): string;
+}
+```
+
+**依赖注入**：`createOrchestrator({ personaProvider, brainRunner })` 只依赖 §2.3 `BrainRunner` 与 §2.4 `PersonaProvider` 抽象接口；PersonaProvider 的具体实现由装配处提供（当前为 app 内嵌 `DefaultPersonaProvider` 占位，PS-02 交付后替换，zero 代码改动）。
+
+**错误处理**：brain 执行失败（超时/不可用）不抛错——`ChatResult.ok = false`，`reply` 为友好降级提示，由 REST 层转 HTTP 200（业务失败）而非 5xx（契约 §3.3 的上层统一转换）。
+
 ---
 
 ## 3. 开发约束（各模块必须遵守）
@@ -173,8 +213,8 @@ export interface ClipMatcher {
 5. **无状态**：应用壳与各模块保持无状态，记忆/会话上下文由 Hermes 管理
 6. **类型共享**：`Persona / Emotion / FunctionCall` 等公共类型格式必须一致（放各模块自持但保证兼容）
 7. **新增接口需更新本文档**：任何模块新增对外能力，先改契约再实现，防止接口漂移
-8. **配置集中管理**：所有 API 密钥与运行参数通过 `config/loader.ts` 统一加载，不散落在源码中
+8. **配置集中管理**：所有 API 密钥与运行参数通过 `config/loader.ts` 统一加载，不散落在源码中。加载优先级：`config/apikeys.json` > 系统环境变量 > `.env.local` > `.env` > 默认值（AP-06 支持根目录 `.env` / `.env.local`，模板见 `.env.example`，均 gitignore；系统环境变量优先，.env 不覆盖已存在的键）
 
 ---
 
-*模块契约 v1.2 · 2026-08-09 · 人设归 Hermes（PersonaProvider）+ 配置集中管理*
+*模块契约 v1.2 · 2026-08-09 · 人设归 Hermes（PersonaProvider）+ 配置集中管理（AP-06 补充 .env 支持）+ Core Orchestrator 编排层（AP-02）*

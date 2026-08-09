@@ -8,7 +8,7 @@
 - **创建时间**：2026-08-09
 - **简短描述**：**纯交互界面** Web 应用：云端 **Qwen-Audio-3.0-Realtime-Flash** 当"嘴和耳朵"（语音交互 + 人设快问快答），本地 **Hermes agent** 当"大脑"（具体事务执行 + 记忆，50+ 工具），中间用文本衔接（Function Calling 中转）。配套 **数字人素材库可视化**（情绪匹配引擎，运行时零 GPU）。**无记忆系统、无数据库**——记忆与事务全部归 Hermes 负责（老板 2026-08-09 明确）。
 - **架构总纲**：`docs/architecture/overall-architecture.md`（v1.1，任务模块目录：voice-shell/brain/persona/avatar + app/client + docs/assets/scripts/tests）
-- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 已开工——BR-01（brain/hermes-runner.ts）完成 ✅**（2026-08-09 实测通过：`hermes -z "1+1=?"` → `2`、超时兜底、错误兜底全过），剩余决策（路径 A/B、Hermes 后端模型、人设内容）待老板拍板。
+- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 核心骨架进行中——BR-01（brain/hermes-runner.ts）✅、PS-01（persona/provider.ts）✅、AP-01（Express 装配）✅、AP-02（Core Orchestrator）✅、AP-03（REST API）✅**（2026-08-09 实测通过：`hermes -z "1+1=?"` → `2`；`/api/chat` 走 persona→brain 完整链路返回小呆口吻答案、`/api/brain/status` 探测到 Hermes v0.20.0、`/api/avatar/status` 返回 clip 引擎），剩余决策（路径 A/B、Hermes 后端模型、人设内容）待老板拍板。
 - **🔧 环境搭建已恢复（2026-08-09 撤销）**：~~环境搭建永久暂停~~（ADR-005）已撤销，子任务可按需执行 npm/pnpm install、Python 依赖安装、素材下载（fetch-avatars.sh）、工具链配置等环境类操作，交付可运行代码；仍遵守轻量化约束（运行时 5-6 纯 JS 依赖，ADR-007）。
 
 ## 目标
@@ -124,6 +124,7 @@ cybergirlfriend/
   - [ ] **无本地数据库**（原 better-sqlite3/node:sqlite 切换取消）
   - [x] **Hermes Runner（BR-01）完成**（2026-08-09）：`brain/hermes-runner.ts` 交付并实测通过（`hermes -z "1+1=?"` → `2` / 超时兜底 / 错误兜底）
   - [x] **PersonaProvider 接口（PS-01）完成**（2026-08-09）：`persona/provider.ts` 交付——`PersonaProvider` 接口（listPersonas/getPersona/buildInstructions/switchPersona）+ `Persona`/`PersonaInfo` 类型 + `isPersona`/`isPersonaInfo` 类型守卫，契约 v1.2 对齐，tsc strict 零报错
+  - [x] **Core Orchestrator（AP-02）代码就位 + REST API（AP-03）完成**（2026-08-09）：`app/server/orchestrator.ts`（persona→brain 编排层）+ `default-persona-provider.ts`（占位人设）+ `routes.ts` 三接口（/api/chat /api/brain/status /api/avatar/status）实测全通过；根目录新建 package.json（express ^4.18.2）
   - [ ] Function Router（BR-02，chat vs. work）
   - [ ] HermesPersonaProvider 实现（PS-02，依赖 PS-01 + BR-01，已解锁）
   - [ ] Git init + 首次提交
@@ -134,4 +135,4 @@ cybergirlfriend/
 - [ ] P5 体验优化 + 收尾
 
 ---
-*最后更新：2026-08-09（纯交互界面定位：删记忆/数据库，事务与记忆归 Hermes）*
+*最后更新：2026-08-09（纯交互界面定位：删记忆/数据库，事务与记忆归 Hermes；M1 进展：BR-01/PS-01/AP-01/AP-02/AP-03 ✅）*

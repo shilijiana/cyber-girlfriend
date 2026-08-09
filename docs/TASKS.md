@@ -38,7 +38,7 @@
 | 里程碑 | 目标 | 状态 | 说明 |
 |--------|------|------|------|
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
-| **M1** 核心骨架 | app 装配 + persona + brain + function-router | 🔄 进行中 | 文字链路先跑通 |
+| **M1** 核心骨架 | app 装配 + persona + brain + function-router | 🔄 进行中 | 文字链路已通（AP-02/03 ✅），BR-02 待做 |
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 📋 待开工 | 语音链路打通 |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 完成，AV-02~04 待执行 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
@@ -53,9 +53,9 @@
 | 排名 | 模块 | 优先级 | 理由 | 当前状态 |
 |------|------|--------|------|----------|
 | 🥇 1 | **config** 配置中心 | P0 | 一切的地基，无依赖，所有模块都要用它 | ✅ CF-01 完成 |
-| 🥈 2 | **app** 应用壳 | P0 | Express 宿主，所有 API 的载体，挡住所有上层模块 | 📋 待开工 |
-| 🥉 3 | **persona** 人设 | P0 | 赛博女友的"灵魂"，Orchestrator 依赖它注入人设 | 📋 待开工 |
-| 4 | **brain** 大脑 | P0 | 复杂事务执行（Hermes 子进程），HermesPersonaProvider 依赖它 | 🔄 BR-01 完成 |
+| 🥈 2 | **app** 应用壳 | P0 | Express 宿主，所有 API 的载体，挡住所有上层模块 | 🔄 AP-01/02/03/06 完成 |
+| 🥉 3 | **persona** 人设 | P0 | 赛博女友的"灵魂"，Orchestrator 依赖它注入人设 | 🔄 PS-01/02 完成 |
+| 4 | **brain** 大脑 | P0 | 复杂事务执行（Hermes 子进程），HermesPersonaProvider 依赖它 | 🔄 BR-01/03 完成 |
 | 5 | **voice-shell** 语音壳 | P1 | 核心交互方式（语音问答），依赖 persona+brain 的 M1 链路 | 📋 待开工 |
 | 6 | **avatar** 数字人 | P1 | 差异化亮点（视觉形象），方案已确认（clip-matcher），依赖语音情绪事件 | 🔄 AV-01 完成 |
 | 7 | **client** 前端 | P2 | 所有能力的最终呈现，依赖 M1-M3 全部后端能力 | 📋 待开工 |
@@ -106,8 +106,8 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | AP-01 | Express 装配与路由骨架 | P0 | ✅ | CF-01 | `/api/health` 返回 `{status:"ok"}`；SSE 骨架就绪；config 加载器集成 |
-| AP-02 | Core Orchestrator 编排层 | P0 | 📋 | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 获取 instructions → brain 执行 → 返回结果 |
-| AP-03 | REST API 实现 | P1 | 📋 | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用 |
+| AP-02 | Core Orchestrator 编排层 | P0 | ✅ | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 获取 instructions → brain 执行 → 返回结果（代码已就位，AP-03 实测 chat 链路通过） |
+| AP-03 | REST API 实现 | P1 | ✅ | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用（2026-08-09 实测通过） |
 | AP-04 | 旧脚手架迁移重构 | P1 | 📋 | AP-01 | cybergirlfriend/server → app/server，移除 SDK/DB/TDesign，代码量 -81% |
 
 ### config · 配置中心（新增）
@@ -122,7 +122,7 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | PS-01 | PersonaProvider 接口定义 | P0 | ✅ | - | `PersonaProvider` 接口 + `Persona`/`PersonaInfo` 类型定义完成 |
-| PS-02 | HermesPersonaProvider 实现 | P0 | 📋 | PS-01, BR-01 | 通过 `hermes -z` 获取人设列表/加载人设/切换人设，instructions 透传 |
+| PS-02 | HermesPersonaProvider 实现 | P0 | ✅ | PS-01, BR-01 | 通过 `hermes -z` 获取人设列表/加载人设/切换人设，instructions 透传（代码已交付：JSON 提取容错+类型守卫+voiceConfig 归一化） |
 | PS-03 | 人设切换 API | P2 | 📋 | PS-02 | `POST /api/persona/switch` 切换活跃人设，无需重启 |
 
 ### brain · 大脑
@@ -131,8 +131,8 @@ config → app → persona → brain → voice-shell → avatar → client
 |----|------|--------|------|------|----------|
 | BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底 |
 | BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 hermes-runner → function_call_output 写回 |
-| BR-03 | Hermes 可用性探测 | P1 | 📋 | BR-01 | `/api/brain/status` 返回 Hermes 版本与可用性 |
-| BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时返回友好提示，Hermes 不可用时降级为纯 Qwen 答复 |
+| BR-03 | Hermes 可用性探测 | P1 | ✅ | BR-01 | `/api/brain/status` 返回 Hermes 版本与可用性（app/server/routes.ts 已实现，2026-08-09 实测 `{available:true, version:"Hermes Agent v0.20.0"}`） |
+| BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时返回友好提示，Hermes 不可用时降级为纯 Qwen 答复（brain 失败降级已在 orchestrator 实现，剩余部分待评估） |
 
 ---
 
@@ -157,7 +157,7 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice`，连接/断开/消息处理 |
-| AP-06 | 环境变量管理 | P1 | 📋 | - | `.env` 读取 `DASHSCOPE_API_KEY` / `VOICE_PROVIDER` / `HERMES_PATH` |
+| AP-06 | 环境变量管理 | P1 | ✅ | - | `.env` 读取 `DASHSCOPE_API_KEY` / `VOICE_PROVIDER` / `HERMES_PATH`（loader.ts 已实现 parseDotEnv + .env.local 覆盖，`.env.example` 已交付） |
 
 ---
 

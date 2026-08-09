@@ -23,7 +23,7 @@ docs/
 ├── WORKFLOW.md              # ★ 工作流规则（三文档怎么用）
 ├── architecture/            # 架构设计
 │   ├── overall-architecture.md   # 整体架构总纲 v1.1
-│   └── module-contracts.md       # 模块接口契约 v1.1
+│   └── module-contracts.md       # 模块接口契约 v1.2
 ├── research/                # 调研报告
 │   ├── Qwen-Audio-3.0-Realtime-调研报告.md
 │   ├── Qwen3-Omni-调研笔记.md

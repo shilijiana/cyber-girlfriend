@@ -1,0 +1,18 @@
+{
+  "name": "cyber-girlfriend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "赛博女友 —— AI 数字人语音陪伴应用（纯交互界面：云端语音壳 + 本地 Hermes 大脑）",
+  "scripts": {
+    "dev": "node --experimental-strip-types app/server/index.ts",
+    "start": "node --experimental-strip-types app/server/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0"
+  }
+}

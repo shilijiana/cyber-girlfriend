@@ -5,6 +5,82 @@
 
 ---
 
+## 2026-08-09（M1 批量验收：AP-02/03/06 + PS-02 + BR-03 完成）
+
+### 做了什么
+- 老板确认"部分子任务已完成功能" → 审查全部新产出并实测：
+  - **AP-02** Core Orchestrator（orchestrator.ts）：persona 取 instructions → brain 执行 → 返回结果，依赖注入只依赖抽象接口 ✅
+  - **AP-03** REST API（routes.ts）：/api/chat 完整链路 + /api/brain/status 探测 + /api/avatar/status 读 manifest ✅
+  - **PS-02** HermesPersonaProvider（hermes-persona-provider.ts）：hermes -z 获取/加载/切换人设，JSON 提取容错 + 类型守卫 + voiceConfig 归一化 ✅
+  - **BR-03** Hermes 可用性探测（probeHermes）✅
+  - **AP-06** 环境变量管理（loader.ts parseDotEnv + .env.local + .env.example）✅
+- **端到端实测通过**：POST /api/chat "1+1等于几？" → `"老板～这题小呆会！1+1=2 呀～🌸"`（人设注入 + Hermes 执行，12.7s）；/api/brain/status → `{available:true, version:"Hermes Agent v0.20.0"}`；空消息 → 400
+- **M1 文字链路全通**：发消息 → 注入人设 → Hermes 干活 → 返回结果 ✅
+- module-contracts.md 升级 v1.2：新增 §2.7 Core Orchestrator 契约
+- 更新 TASKS.md / TASKS-CONFIG.md 状态（AP-02/03/06、PS-02、BR-03 → ✅）
+- .gitignore 新增临时验证脚本规则（.tmp-probe/、*.tmp.json、tests/_tmp_*.ts）
+
+### 决策
+- default-persona-provider.ts 为占位实现（人设数据最终归 Hermes），PS-02 交付后可替换注入，orchestrator 零改动
+- 临时验证脚本不入库（符合"跑完即删"规范）
+
+### 阻塞 / 下一步
+- M1 剩余：BR-02 function-router（依赖 BR-01✅ + AP-02✅，可开工）
+- M2 语音链路：VS-01（依赖 PS-02✅ + API Key）
+- M3 数字人：AV-02 manifest.json（无依赖，可开工）
+
+---
+
+## 2026-08-09（AP-02 完成：Core Orchestrator 编排层交付，真实 Hermes 全链路验证通过）
+
+### 做了什么
+- 交付 `app/server/orchestrator.ts`（CoreOrchestrator 编排层）+ `app/server/default-persona-provider.ts`（占位人设）
+- **契约先行**（红线 4）：module-contracts.md 新增 §2.7 Core Orchestrator 接口（ChatRequest/ChatResult/SwitchResult/依赖注入约定）并细化 §2.1 `/api/chat` 契约，v1.1 → v1.2
+- **编排流程**：`chat(message)` = persona 取 instructions → `brainRunner.run({instruction, context:instructions})` → 返回 `{reply, personaId, ok, durationMs, brain}`；依赖注入（只依赖 §2.3 BrainRunner + §2.4 PersonaProvider 抽象接口，type-only imports，零运行时依赖 ADR-007）
+- **占位人设**：app 内嵌 DefaultPersonaProvider（小呆，硬编码常量非持久化），PS-02 交付后在 index.ts 装配处一行替换，orchestrator 零改动
+- **错误语义**（契约 §3.3）：persona 获取失败 → 上抛转 4xx/5xx；brain 失败 → 不抛错，`ok:false` + 友好降级提示（HTTP 200）
+- routes.ts / index.ts 接入编排层（同时统一相对 import 补 `.ts` 后缀，node 原生 type-strip 可跑）
+- 验证（node --experimental-strip-types）：mock 冒烟 6 用例全过（编排/切人设/未知人设抛错/brain 失败降级/真实 Hermes `1+1=?` → 小呆口吻回答，durationMs 13396）；tsc strict 零报错（orchestrator + provider）；临时脚本已删
+
+### 决策
+- Orchestrator 面向接口编程（构造注入），persona/brain 实现可随时替换，符合"只依赖接口不依赖实现"（契约 §3.1）
+- 活跃人设仅内存（`activePersonaId`），无持久化（红线 1），重启回默认
+- 占位人设属 app 装配策略，不越权写 persona 模块（PS-02 归 persona）
+
+### 阻塞 / 下一步
+- 交付后与 AP-03（REST API）无缝衔接：AP-03 在 `createApiRouter(config, orchestrator)` 签名上实现三接口，实测全通过
+- BR-02 function-router（依赖 AP-02 ✅ + BR-01 ✅）；PS-02 HermesPersonaProvider（依赖 PS-01 ✅ + BR-01 ✅，替换占位人设）
+
+---
+
+## 2026-08-09（AP-03 完成：REST API 实现交付，实测全通过）
+
+### 做了什么
+- 实现 `app/server/routes.ts` 三个 REST 接口（契约 §2.1）：
+  - `POST /api/chat`：走 Core Orchestrator（AP-02 编排层已就位）完整链路 → `{reply, personaId, ok, durationMs}`；message 校验 400、persona 不存在 400、编排异常 500、brain 业务失败 200 友好降级（契约 v1.2 语义）
+  - `GET /api/brain/status`：`probeHermes()` spawn `binPath --version`（5s 超时，1MB 上限）→ `{available, version}`
+  - `GET /api/avatar/status`：读 `config.avatar.assetsPath/manifest.json` 统计 → `{engine:'clip', clipCount}`，manifest 缺失/损坏降级 0
+- 根目录新建最小 `package.json`（type:module + express ^4.18.2，npm install 68 包）——app 模块首个可运行环境，AP-04/CL 后续共用
+- 实测验证（`node --experimental-strip-types` 启动 + curl，遵循项目无 tsconfig 惯例）：
+  - ✅ `/api/health` → `{status:"ok"}`
+  - ✅ `/api/chat` 真实链路 `{"message":"1+1=?"}` → `{reply:"1+1=2 呀，这种小问题可难不倒我～🌸...", personaId:"xiaodai", ok:true, durationMs:12893}`（小呆人设注入生效，persona→brain 串联打通）
+  - ✅ `/api/brain/status` → `{available:true, version:"Hermes Agent v0.20.0 (2026.8.3)..."}`
+  - ✅ `/api/avatar/status` → `{engine:"clip", clipCount:0}`（assets 暂无 manifest）
+  - ✅ 错误路径：空 body / 空白 message → 400；`personaId:"nobody"` → 400 `人设不存在`
+  - ✅ 边界：binPath 不存在 → `{available:false}`；临时 manifest 3 条 → `clipCount:3`；无 manifest → `clipCount:0`
+
+### 决策
+- brain/status 探测逻辑**自持在应用壳**（probeHermes），不越权写 brain 模块（BR-03 未指派，届时可复用/迁移）
+- chat 契约跟随 v1.2：REST 层只做参数校验 + 编排调用 + 错误映射，业务降级文案归 orchestrator
+- 保持轻量化：只新增 express 一个运行时依赖（ADR-007 允许 5-6 个纯 JS）
+
+### 阻塞 / 下一步
+- AP-04 旧脚手架迁移（依赖 AP-01 ✅，cybergirlfriend/server → app/server，移除 SDK/DB/TDesign）
+- AP-05 WS 服务端（依赖 VS-02）；BR-03 Hermes 可用性探测可复用 probeHermes
+- 根 package.json 已建，后续 npm scripts（dev/start）可随模块扩展
+
+---
+
 ## 2026-08-09（AV-01 完成：clip-matcher 迁移与适配交付）
 
 ### 做了什么

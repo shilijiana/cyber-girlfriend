@@ -1,15 +1,19 @@
 /**
- * app/server/index.ts —— Express 装配（AP-01 骨架）
+ * app/server/index.ts —— Express 装配（AP-01 骨架 + AP-02 Orchestrator 接入）
  *
  * 职责：中间件、REST 路由挂载、SSE 骨架、条件 listen（测试友好）。
- * 使用 config/loader.ts 的 config 导出驱动 host/port 与脱敏日志。
+ * AP-02 变更：装配 Core Orchestrator（注入默认占位人设 + brainRunner），
+ *   并传给 createApiRouter 实现 /api/chat 完整链路。
  *
- * 模块边界：仅应用壳，不 import persona/brain/voice-shell/avatar。
+ * 模块边界：仅应用壳，不直接 import persona/brain 实现（通过 orchestrator 注入）。
  */
 import express from 'express';
 import type { Express } from 'express';
-import { config, maskKey } from '../../config/loader';
-import { createApiRouter } from './routes';
+import { config, maskKey } from '../../config/loader.ts';
+import { createApiRouter } from './routes.ts';
+import { createOrchestrator } from './orchestrator.ts';
+import { createDefaultPersonaProvider } from './default-persona-provider.ts';
+import { brainRunner } from '../../brain/hermes-runner.ts';
 
 export function createApp(): Express {
   const app = express();
@@ -17,8 +21,14 @@ export function createApp(): Express {
   // 中间件
   app.use(express.json());
 
+  // 编排层装配：PersonaProvider 当前为占位实现（PS-02 交付后替换，orchestrator 零改动）
+  const orchestrator = createOrchestrator({
+    personaProvider: createDefaultPersonaProvider(),
+    brainRunner,
+  });
+
   // REST API（/api 前缀）
-  app.use('/api', createApiRouter(config));
+  app.use('/api', createApiRouter(config, orchestrator));
 
   // SSE 骨架：/api/events 事件通道（AP-02 Orchestrator 后续在此推送状态/字幕/情绪）
   setupSse(app);

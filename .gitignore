@@ -26,6 +26,11 @@ coverage/
 test-results/
 playwright-report/
 
+# ===== 临时验证脚本（子任务自检用，不入库）=====
+.tmp-probe/
+*.tmp.json
+tests/_tmp_*.ts
+
 # ===== 编辑器 / 系统 =====
 .idea/
 .vscode/

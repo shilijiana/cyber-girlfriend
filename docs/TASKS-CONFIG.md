@@ -43,9 +43,9 @@
 | 模块 | 前缀 | 一句话职责 | 状态 |
 |------|------|-----------|------|
 | **config** | CF | 配置中心：密钥集中管理（文件优先、环境变量兜底） | ✅ 完成 |
-| **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01 完成 |
-| **persona** | PS | 人设接口（归 Hermes 维护）：PersonaProvider 抽象 | 🔄 PS-01 完成 |
-| **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | ✅ BR-01 完成 |
+| **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01/02/03/06 完成 |
+| **persona** | PS | 人设接口（归 Hermes 维护）：PersonaProvider 抽象 | 🔄 PS-01/02 完成 |
+| **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | 🔄 BR-01/03 完成 |
 | **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 📋 待执行 |
 | **avatar** | AV | 数字人：素材匹配引擎（AV-01 完成） | 🔄 AV-01 完成 |
 | **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
@@ -127,11 +127,11 @@ M5:  联调收尾
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | AP-01 | Express 装配与路由骨架 | P0 | ✅ | CF-01 | `/api/health` 返回 `{status:"ok"}`；SSE 骨架就绪；config 集成 |
-| AP-02 | Core Orchestrator 编排层 | P0 | 📋 | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 取 instructions → brain 执行 → 返回结果 |
-| AP-03 | REST API 实现 | P1 | 📋 | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用 |
+| AP-02 | Core Orchestrator 编排层 | P0 | ✅ | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 取 instructions → brain 执行 → 返回结果（chat 链路实测通过） |
+| AP-03 | REST API 实现 | P1 | ✅ | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用（实测通过） |
 | AP-04 | 旧脚手架迁移重构 | P1 | 📋 | AP-01 | cybergirlfriend/server → app/server，移除 SDK/DB/TDesign，-81% |
 | AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice` |
-| AP-06 | 环境变量管理 | P1 | 📋 | - | `.env` 读取 DASHSCOPE_API_KEY 等 |
+| AP-06 | 环境变量管理 | P1 | ✅ | - | `.env` 读取 DASHSCOPE_API_KEY 等（parseDotEnv + .env.example 已交付） |
 
 ---
 
@@ -165,7 +165,7 @@ export interface Persona {
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | PS-01 | PersonaProvider 接口定义 | P0 | ✅ | - | `PersonaProvider` + `Persona`/`PersonaInfo` 类型定义完成 |
-| PS-02 | HermesPersonaProvider 实现 | P0 | 📋 | PS-01, BR-01 | 通过 `hermes -z` 获取/加载/切换人设，instructions 透传 |
+| PS-02 | HermesPersonaProvider 实现 | P0 | ✅ | PS-01, BR-01 | 通过 `hermes -z` 获取/加载/切换人设，instructions 透传（代码已交付） |
 | PS-03 | 人设切换 API | P2 | 📋 | PS-02 | `POST /api/persona/switch` 切换活跃人设，无需重启 |
 
 ---
@@ -193,8 +193,8 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 |----|------|--------|------|------|----------|
 | BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底 |
 | BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 runner → function_call_output 写回 |
-| BR-03 | Hermes 可用性探测 | P1 | 📋 | BR-01 | `/api/brain/status` 返回版本与可用性 |
-| BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时友好提示；Hermes 不可用降级纯 Qwen |
+| BR-03 | Hermes 可用性探测 | P1 | ✅ | BR-01 | `/api/brain/status` 返回版本与可用性（routes.ts 已实现，实测 `{available:true, version:"Hermes Agent v0.20.0"}`） |
+| BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时友好提示；Hermes 不可用降级纯 Qwen（brain 失败降级已在 orchestrator 实现） |
 
 > 📌 **BR-01 实现规格**：`brain/hermes-runner-spec.md`（接口定义 + 实测 Hermes 参数 + 参考骨架 + 验收自检表，实测 `hermes -z "1+1=?"` → `2。`）
 
