@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "clips": [
+    {
+      "id": "xiaodai_happy_01",
+      "emotion": "happy",
+      "durationSec": 11,
+      "src": "clips/anime_girl_1_pexels.mp4"
+    },
+    {
+      "id": "xiaodai_happy_02",
+      "emotion": "happy",
+      "durationSec": 13,
+      "src": "clips/anime_girl_2_pexels.mp4"
+    },
+    {
+      "id": "xiaodai_gentle_01",
+      "emotion": "gentle",
+      "durationSec": 12,
+      "src": "clips/anime_girl_3_pexels.mp4"
+    },
+    {
+      "id": "xiaodai_neutral_01",
+      "emotion": "neutral",
+      "durationSec": 11,
+      "src": "clips/girl_portrait_1_pexels.mp4"
+    },
+    {
+      "id": "xiaodai_serious_01",
+      "emotion": "serious",
+      "durationSec": 7,
+      "src": "clips/girl_portrait_2_pexels.mp4"
+    },
+    {
+      "id": "xiaodai_surprise_01",
+      "emotion": "surprise",
+      "durationSec": 8,
+      "src": "clips/girl_portrait_3_pexels.mp4"
+    }
+  ]
+}

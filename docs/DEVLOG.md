@@ -5,6 +5,102 @@
 
 ---
 
+## 2026-08-09（AV-03 素材就位：小呆形象素材下载完成）
+
+### 做了什么
+- 老板指示用"智能媒体下载器"下载接近小呆形象的图片/视频给 AV-03
+- 通过 Pexels 下载：**8 张动漫少女/元气少女图片 + 6 个少女视频**（MP4 均验证有效）
+- 素材分布：图片 `assets/avatars/`（8 张 jpeg），视频 `assets/avatars/clips/`（6 个 mp4）
+- 生成 `avatar/manifest.json`：登记 **6 条真实片段，五情绪全覆盖**（happy×2/gentle/neutral/serious/surprise）
+- 验证：clip-matcher 消费 ✅（五情绪 pick 均非 null）、视频格式 ✅（ftyp 头有效）、gitignore ✅（视频不入库）
+
+### 决策
+- 视频素材为大文件不入 git（gitignore `assets/avatars/*`），manifest 入库
+- AV-03 素材占位完成 → 真实素材可后续替换（老板提供/再下载）
+
+### 阻塞 / 下一步
+- AV-03 素材就位待验收；CL-02（useAvatar）待开工
+- 素材来源：Pexels（免费商用授权）
+
+---
+
+## 2026-08-09（CL-01 完成：AvatarCanvas 数字人画布交付）
+
+### 做了什么
+- **CL-01 AvatarCanvas 组件（P0，✅）**：
+  - `client/src/components/AvatarCanvas.tsx`：`<video>` 素材播放 + 状态切换（idle/speaking/listening）——state/emotion 变化 → 选片播放；listening 暂停保留当前帧；播完（!loop）轮换下一片段；无素材/加载失败降级内置 SVG 卡通占位（不黑屏不崩溃）；`playOnState`/`loop`/`fallback`/`className` 可配
+  - `avatar-canvas-core.ts`：状态/情绪 → 选片决策抽成零 React 纯函数（复用 AV-04 `createEmotionMatcher` 自动避重 + FALLBACK_ORDER neutral 优先兜底 + `toClipLibrary` manifest 归一化/脏数据过滤）
+- **配套：client 前端工程最小初始化**（规格 §6 允许）：Vite 5 + React 18 + TS（`client/package.json`/`vite.config.ts`/`tsconfig.json`/`index.html`/`src/main.tsx`/`src/App.tsx` 演示页/`index.css`）；dev server 5173，/api 与 /ws 代理到后端 3000
+- **自检（全绿）**：`client/src/components/avatar-canvas-test.ts` 13/13 通过（manifest 消费 / 状态切换 / 情绪换片 / 素材量内避重 / 空库降级 / 脏数据过滤）；tsc --noEmit 零错误；vite build 通过；dev server 启动 200 + 组件模块可加载
+- **看板**：TASKS.md CL-01 → ✅ DONE，M3 里程碑同步（AV-01/02/04 + CL-01 完成）
+
+### 决策
+- 选片决策抽纯函数（core 文件）：React 组件不便 node 直测，纯函数与 voice-shell `*-test.ts` 同惯例直接跑；组件只做 React 绑定，边界清晰
+- idle/listening 无专属素材分类 → FALLBACK_ORDER（neutral 优先）兜底，listening 播放同款片段但暂停（规格允许"暂停或降低音量"）
+- 前端工程独立 package.json（不入根 tsconfig）：CL-09 迁移时再统一并入
+
+### 阻塞 / 下一步
+- 无阻塞。下一步：CL-02 useAvatar Hook（依赖 CL-01 ✅ 可开工）/ AV-03 素材占位
+
+---
+- **AV-04 情绪匹配与轮换（P1，✅）**：新增 `avatar/emotion-matcher.ts`——在 AV-01 `ClipMatcher` 纯函数之上封装**带会话状态的情绪匹配器**：
+  - `EmotionMatcher`：`pick(emotion)`（内部维护最近播放窗口，默认 5，自动避重复）/ `markPlayed(clipId)` / `reset()` / `getRecent()`（快照）
+  - 随机 + 轮换沿用 AV-01 逻辑（新鲜池随机 → 全播过回退全池轮换 → 无素材 null）；构造支持注入自定义 matcher（`matcher?` 字段）
+  - 纯内存无持久化（红线 1），零第三方依赖（红线 5），复用 clip-matcher 类型
+- **自检**：`avatar/emotion-matcher-unit-test.ts` 12/12 通过（情绪选片 / 无素材 null / 连续 5 次无重复 / 全播过回退非 null / reset 重置 / 窗口滑动 / markPlayed / getRecent 快照 / 注入自定义 matcher）；tsc 零错误
+- **契约同步（红线 4）**：module-contracts.md 升 v1.9——§2.5 补充 `EmotionMatcherOptions`/`EmotionMatcher` 接口与对接链路（Qwen 情绪事件 → dispatcher.onEmotion → EmotionMatcher.pick → Clip → CL-01）
+- **看板**：TASKS.md AV-04 → ✅ DONE，M3 里程碑与 avatar 模块状态同步
+
+### 决策
+- 独立文件 `emotion-matcher.ts`（规格建议二选一，选独立封装：有状态逻辑与纯函数解耦，调用方无需自己传 recentlyPlayed）
+- `pick()` 内部自动记录播放（选中即记），同时保留独立 `markPlayed`（供外部播放完成回调手动补充）
+- 窗口默认 5：与规格一致，素材充足（>=5）时连续 5 次 pick 确定性不重复
+
+### 阻塞 / 下一步
+- 无阻塞。下一步：M3 剩余 AV-02（manifest）/ CL-01（AvatarCanvas）/ AV-03（素材占位），可派活
+
+---
+
+## 2026-08-09（AV-02 完成：manifest.json 素材清单交付）
+
+### 做了什么
+- **AV-02 manifest.json 素材清单（P0，✅）**：新增 `avatar/manifest.json`——数字人素材库权威数据源，对齐 AV-01 `ClipLibrary` 接口：
+  - `version: 1` + 10 条占位片段（5 情绪 × 2），四必填字段（id/emotion/durationSec/src），时长 3~8s 符合设计区间，src 相对 `assets/avatars/` 指向 `clips/`
+  - **双副本**：权威在 `avatar/manifest.json`（入 git）；运行时副本同步 `assets/avatars/manifest.json`（routes.ts `loadAvatarStatus` 的约定加载路径，零代码改动即可命中）
+  - **.gitignore 调整**：`assets/avatars/*` + `!assets/avatars/manifest.json`——元数据例外入 git，视频大文件（AV-03）继续忽略
+  - **自检**：临时校验脚本 `avatar/manifest-check.ts` 11/11 通过（JSON 可解析 / version=1 / 四必填字段 / id 唯一 / 情绪值合法 / 5 情绪全覆盖 / 时长 3~10s / clip-matcher 消费 5 情绪 pickClip 均非 null / buildQueue 可用 / 双副本一致），跑完已删
+- **看板**：TASKS.md AV-02 → ✅ DONE，M3 里程碑与 avatar 模块状态同步（AV-01/02/04 完成）
+
+### 决策
+- 双副本方案：规格 §1 权威文件在 `avatar/`，但运行时加载路径约定为 `assetsPath/manifest.json`（routes.ts 已实现）——权威 + 同步副本，既满足"manifest 入 git"（红线下 .gitignore 加例外），又让 `GET /api/avatar/status` 零改动即可返回 clipCount=10
+- 占位条目每情绪 2 条（规格只要求 ≥1）：2 条以上"新鲜池随机"才有轮换意义，AV-04 轮换测试更充分；lipActivity 留扩展位（P2 时补，保持四字段对齐 Clip 接口）
+
+### 阻塞 / 下一步
+- 无阻塞。下一步：M3 剩余 AV-03（素材占位，依赖 AV-02 ✅ 可开工）/ CL-01（AvatarCanvas，依赖 AV-01 ✅ 可开工）
+
+---
+
+## 2026-08-09（M2 收官：AP-05 WS 服务端挂载完成，语音链路全通）
+
+### 做了什么
+- **AP-05 WS 服务端实现（P0，✅）**：
+  - 新增 `app/server/ws.ts`：`setupVoiceWebSocket`——WebSocketServer attach `/ws/voice`（path 过滤）+ 装配 gateway（VS-02）+ Function Calling 层（VS-06）+ Qwen provider（VS-01，注册 hermes_brain）+ 生命周期（wss 错误兜底、人设解析失败降级关闭、handle.close 优雅关闭）
+  - 改 `app/server/index.ts`：启动改 `http.createServer(app)` 共享端口；personaProvider/orchestrator 提升模块级单例（REST/WS 人设状态一致）；resolveInstructions 从活跃人设组装；SIGINT/SIGTERM 优雅关闭（WS 先断 → HTTP 关）
+  - **修复 gateway.ts 帧类型 bug**（VS-02 范围外小修复，报备老板）：ws 库（Node 22 + ws@8）文本帧与二进制帧都以 Buffer 交付（receiver.js `emit('message', buf, isBinary)`），原 `Buffer.isBuffer` 判断会把 JSON 控制消息误判为二进制音频帧直接上行（契约 §2.1 `{type:'audio'}` 消息失效）。改为 `isBinary` 标志区分，mock 兼容
+- **验证（全绿）**：tsc 零错误；AP-05 自检 9/9（挂载/人设注入/上下行中继/断开清理/错误兜底/优雅关闭/路径隔离）；voice-shell 五组单测回归全过；**真实端到端 6/6**：真实启动装配 + 真实 Qwen 连接（`session.created` → `session.updated` 人设注入 → ready → status connected → 断开清理 → handle.close 优雅关闭）
+
+### 决策
+- WS 挂载用 ws 库 attach 模式（`new WebSocketServer({ server, path })`），非 /ws/voice 的 upgrade 自动忽略，不拦截
+- 人设解析失败 → `{type:'error'}` + close(1011)，不建立语音会话（防御 FilePersonaProvider 读文件异常）
+- 测试模式沿用 voice-shell 惯例：模块内 `*-test.ts`（mock）+ `*-smoke-test.ts`（真实连接），node --experimental-strip-types 直接跑
+
+### 阻塞 / 下一步
+- ⚠️ 发现端口 3000 被 PID 2620 占用（疑似残留 node 进程，未擅自处理，老板可确认后清理）
+- M2 全部完成（VS-01~06 + AP-05 + AP-06）→ 语音链路全通
+- 下一步：M3 数字人（AV-02/AV-04/CL-01 已出卡，可派活）
+
+---
+
 ## 2026-08-09（M3 开工：AV-02/AV-04/CL-01 任务卡产出）
 
 ### 做了什么

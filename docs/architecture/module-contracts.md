@@ -1,7 +1,7 @@
 # 模块接口契约（Module Contracts）
 
 > **文档定位**：赛博女友各任务模块之间的**开发契约**——定义每个模块暴露的接口、依赖的接口、消息格式与协议，确保各模块并行开发互不冲突。
-> **文档日期**：2026-08-09 · 版本 v1.7
+> **文档日期**：2026-08-09 · 版本 v1.9
 > **配套**：`docs/architecture/overall-architecture.md`（架构总纲）、`docs/adr/`（决策记录）
 > **v1.1 变更**（老板 2026-08-09）：**删除 MemoryStore 与 Db 接口**——赛博女友无记忆、无数据库，事务与记忆由 Hermes 负责。
 > **v1.2 变更**（2026-08-09）：新增 §2.7 Core Orchestrator（AP-02 编排层）与 `/api/chat` 契约细化。
@@ -11,6 +11,7 @@
 > **v1.6 变更**（2026-08-09）：**VS-03 双路分发器**——新增 §2.9 `VoiceDispatcher`：把 VoiceSession 事件流按类型分发到多路消费者（音频→播放 / 副文本→字幕 / 情绪→数字人 / function_call→BR-02），与 §2.2 VoiceSession 回调解耦，gateway 双路（浏览器 + deps）统一走分发器。
 > **v1.7 变更**（2026-08-09）：**VS-06 Function Calling 注册**——§2.2 `VoiceSession` 新增 `sendFunctionCallOutput(out)`（写回 function_call_output 并触发 `response.create`，补齐 Function Calling 闭环）；§2.8 补装配说明（`voice-shell/function-calling.ts`：注册 hermesBrainTool → 拦截 → router.handle → 写回）。
 > **v1.8 变更**（2026-08-09）：**VS-04 VAD 与打断**——server_vad 模式契约落地：§2.1 WS 协议补 `status` 事件（含 `listening` 用户说话中态）；§2.2 `VoiceSession` 新增 `onVadState` 回调（speech_started/stopped 归一化为 `speaking: boolean`）；§2.9 `VoiceConsumer` 同步新增 `onVadState` 分发。**打断语义**：server_vad 下用户插话由服务端自动取消当前响应（response.done status=cancelled），客户端只需把 VAD 状态透传给前端（数字人 listening 态），无需主动 response.cancel。
+> **v1.9 变更**（2026-08-09）：**AV-04 情绪匹配与轮换**——§2.5 新增 `EmotionMatcher`（`avatar/emotion-matcher.ts`）：在 `ClipMatcher` 纯函数之上封装带会话状态的情绪匹配器（内部维护最近播放窗口，默认 5，自动避重复；`pick`/`markPlayed`/`reset`/`getRecent`），调用方只需传情绪事件。对接链路：Qwen 情绪事件 → `dispatcher.onEmotion` → `EmotionMatcher.pick` → Clip → CL-01 播放。自检 12/12 通过。
 
 ---
 
@@ -192,6 +193,24 @@ export interface Persona {
 export interface ClipMatcher {
   pickClip(emotion: Emotion, recentlyPlayed: string[]): Clip | null;
   buildQueue(targetDurationMs: number, emotion: Emotion): Clip[];
+}
+```
+
+> **v1.9 补充（AV-04）**：带会话状态的情绪匹配器——内部维护最近播放窗口（滑动，默认 5），自动避重复；纯内存无持久化（红线 1）。
+
+```ts
+// avatar/emotion-matcher.ts（AV-04，已交付）
+export interface EmotionMatcherOptions {
+  library: ClipLibrary;            // 素材库（AV-02 manifest）
+  recentlyPlayedWindow?: number;   // 最近播放记忆窗口（默认 5）
+  matcher?: ClipMatcher;           // 可选注入底层匹配器（默认内部 createClipMatcher）
+}
+
+export interface EmotionMatcher {
+  pick(emotion: Emotion): Clip | null;   // 情绪事件 → 选片：内部维护 recentlyPlayed，自动避重复
+  markPlayed(clipId: string): void;      // 记录已播放（pick 已自动记录，供外部手动补充）
+  reset(): void;                         // 重置播放记忆（切换人设/会话时调用）
+  getRecent(): string[];                 // 当前窗口快照（调试/测试用）
 }
 ```
 

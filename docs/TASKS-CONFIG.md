@@ -43,11 +43,11 @@
 | 模块 | 前缀 | 一句话职责 | 状态 |
 |------|------|-----------|------|
 | **config** | CF | 配置中心：密钥集中管理（文件优先、环境变量兜底） | ✅ 完成 |
-| **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01/02/03/04/06 完成 |
+| **app** | AP | Express 应用壳：路由/WS/SSE/编排 | ✅ AP-01~06 全部完成 |
 | **persona** | PS | 人设文件化（v1.3）：PersonaProvider + FilePersonaProvider + 分区记忆 | ✅ PS-01~04 完成 |
 | **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | ✅ BR-01~05 完成 |
-| **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 🔄 VS-01~06 全部完成，AP-05 待挂载 |
-| **avatar** | AV | 数字人：素材匹配引擎（AV-01 完成） | 🔄 AV-01 完成 |
+| **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | ✅ VS-01~06 全部完成 |
+| **avatar** | AV | 数字人：素材匹配引擎 + 素材清单 + 情绪匹配与轮换 | 🔄 AV-01/02/04 完成 |
 | **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
 | **docs** | DC | 文档体系：三文档工作流（本文件属于此模块） | ✅ 完成 |
 | **Hermes 执行者** | HM | Hermes 作为子任务执行者承接的任务（守则/角色卡/记忆模板，审查类已转 CC） | 🔄 HM-01/02/03 完成 |
@@ -132,7 +132,7 @@ M5:  联调收尾
 | AP-02 | Core Orchestrator 编排层 | P0 | ✅ | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 取 instructions → brain 执行 → 返回结果（chat 链路实测通过） |
 | AP-03 | REST API 实现 | P1 | ✅ | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用（实测通过） |
 | AP-04 | 旧脚手架迁移重构 | P1 | ✅ | AP-01 | cybergirlfriend/server → app/server 完成；SDK/DB/TDesign 全移除（运行时依赖 13→1）；旧 server 目录清理；tsc 零错误（2026-08-09 验收） |
-| AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice`（gateway 逻辑由 VS-02 提供，本任务负责挂载与生命周期） |
+| AP-05 | WS 服务端实现 | P0 | ✅ | VS-02 | WebSocket Server 挂载 `/ws/voice`（`app/server/ws.ts` 交付：WS 挂载 + 生命周期 + gateway/fc 装配；index.ts 改 http server 共享端口 + 优雅关闭；自检 9/9 + 真实端到端 6/6（真实 Qwen 连接 + 人设注入）；tsc 零错误；附带修复 gateway 帧类型判断 bug） |
 | AP-06 | 环境变量管理 | P1 | ✅ | - | `.env` 读取 DASHSCOPE_API_KEY 等（parseDotEnv + .env.example 已交付） |
 
 ---
@@ -235,9 +235,9 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | AV-01 | clip-matcher 迁移与适配 | P0 | ✅ | - | 从 cybergirlfriend/ 迁移，适配新架构（方案已确认，自检 16/16 ✅） |
-| AV-02 | manifest.json 设计 | P0 | 🔄 | - | 路径/情绪标签/时长/嘴型活跃度，结构完整（规格 `docs/tasks/AV-02-manifest.md`） |
+| AV-02 | manifest.json 设计 | P0 | ✅ | - | 路径/情绪标签/时长/嘴型活跃度，结构完整（`avatar/manifest.json` 已交付：version:1 + 10 条占位 5 情绪全覆盖，双副本 + gitignore 例外，校验 11/11，规格 `docs/tasks/AV-02-manifest.md`） |
 | AV-03 | 素材占位方案 | P1 | 📋 | AV-02 | 开源样片 + 卡通兜底 |
-| AV-04 | 情绪匹配与轮换 | P1 | 🔄 | AV-01 | 情绪事件 → 选片，避免连续重复（规格 `docs/tasks/AV-04-emotion-matcher.md`，AV-01 ✅ 可开工） |
+| AV-04 | 情绪匹配与轮换 | P1 | ✅ | AV-01 | 情绪事件 → 选片，避免连续重复（`avatar/emotion-matcher.ts` 已交付：有状态封装 pick/markPlayed/reset/getRecent，窗口默认 5 自动避重；自检 12/12 + tsc 零错误，2026-08-09 验收） |
 
 ---
 

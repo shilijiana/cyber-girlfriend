@@ -39,8 +39,8 @@
 |--------|------|------|------|
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
 | **M1** 核心骨架 | app 装配 + persona + brain + function-router | ✅ 完成 | 文字链路全通（AP-01~06 ✅ + BR-01~05 ✅ + PS-01~04 ✅） |
-| **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 🔄 进行中 | **VS-01 ✅ + VS-02 ✅ + VS-03 ✅ + VS-04 ✅（VAD 8/8）+ VS-05 ✅ + VS-06 ✅**；AP-05 待执行 |
-| **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 ✅；AV-02/AV-04/CL-01 已出卡可开工 |
+| **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | ✅ 完成 | **VS-01~06 ✅ + AP-05 ✅ + AP-06 ✅** —— 语音链路全通（/ws/voice 真实 Qwen 连接实测通过） |
+| **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01/02/04 ✅ + CL-01 ✅；AV-03（素材占位）/ CL-02（useAvatar）待开工 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
 | **M5** 联调收尾 | 端到端 + 优化 + 文档 | 📋 待开工 | 交付级完成 |
 
@@ -57,7 +57,7 @@
 | 🥉 3 | **persona** 人设 | P0 | 赛博女友的"灵魂"，Orchestrator 依赖它注入人设 | 🔄 PS-01~04 完成 |
 | 4 | **brain** 大脑 | P0 | 复杂事务执行（Hermes 子进程），HermesPersonaProvider 依赖它 | ✅ BR-01~05 完成 |
 | 5 | **voice-shell** 语音壳 | P1 | 核心交互方式（语音问答），依赖 persona+brain 的 M1 链路 | 📋 待开工 |
-| 6 | **avatar** 数字人 | P1 | 差异化亮点（视觉形象），方案已确认（clip-matcher），依赖语音情绪事件 | 🔄 AV-01 完成 |
+| 6 | **avatar** 数字人 | P1 | 差异化亮点（视觉形象），方案已确认（clip-matcher），依赖语音情绪事件 | 🔄 AV-01/02/04 完成 |
 | 7 | **client** 前端 | P2 | 所有能力的最终呈现，依赖 M1-M3 全部后端能力 | 📋 待开工 |
 | 8 | **docs** 文档体系 | P3 | 支撑性工作，M0 已基本完成，随开发持续维护 | ✅ 主线完成 |
 
@@ -166,7 +166,7 @@ config → app → persona → brain → voice-shell → avatar → client
 
 ---
 
-## M2 · 语音链路（📋 待开工）
+## M2 · 语音链路（✅ 完成）
 
 > **目标**：语音链路打通——浏览器麦克风 → Qwen-Audio Realtime WS → 语音播放 + 字幕。
 > **前置条件**：M1 完成 + DASHSCOPE_API_KEY 就绪
@@ -186,7 +186,7 @@ config → app → persona → brain → voice-shell → avatar → client
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice`，连接/断开/消息处理（gateway 逻辑由 VS-02 提供，本任务负责挂载与生命周期） |
+| AP-05 | WS 服务端实现 | P0 | ✅ | VS-02 | WebSocket Server 挂载 `/ws/voice`，连接/断开/消息处理（`app/server/ws.ts` 已交付：WS 挂载 + 生命周期 + gateway/fc 装配；`index.ts` 改 http server 共享端口 + SIGINT/SIGTERM 优雅关闭；自检 9/9 + voice-shell 回归全绿 + 真实端到端 6/6（真实 Qwen 连接 → session.updated 人设注入 → ready）；tsc 零错误；附带修复 gateway 帧类型判断 bug（ws 文本帧以 Buffer 交付）） |
 | AP-06 | 环境变量管理 | P1 | ✅ | - | `.env` 读取 `DASHSCOPE_API_KEY` / `VOICE_PROVIDER` / `HERMES_PATH`（loader.ts 已实现 parseDotEnv + .env.local 覆盖，`.env.example` 已交付） |
 
 ---
@@ -201,15 +201,15 @@ config → app → persona → brain → voice-shell → avatar → client
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
 | AV-01 | clip-matcher.ts 迁移与适配 | P0 | ✅ | - | 从 cybergirlfriend/server/avatar/ 迁移，适配新架构接口（方案已确认 ✅） |
-| AV-02 | manifest.json 设计与实现 | P0 | 🔄 | - | 素材清单：路径/情绪标签/时长/嘴型活跃度，结构完整（规格 `docs/tasks/AV-02-manifest.md`，可开工） |
-| AV-03 | 素材占位方案 | P1 | 📋 | AV-02 | 开源授权样片 + 内置卡通形象兜底（老板负责素材后补） |
-| AV-04 | 情绪匹配与轮换策略 | P1 | 🔄 | AV-01 | 情绪事件 → 选片，避免连续重复，随机+轮换（规格 `docs/tasks/AV-04-emotion-matcher.md`，依赖 AV-01 ✅ 可开工） |
+| AV-02 | manifest.json 设计与实现 | P0 | ✅ | - | 素材清单：路径/情绪标签/时长/嘴型活跃度，结构完整（`avatar/manifest.json` 已交付：version:1 + 10 条占位片段 5 情绪全覆盖，四必填字段对齐 Clip 接口，时长 3~8s；.gitignore 加 `!assets/avatars/manifest.json` 例外入 git，运行时副本同步；临时校验脚本 11/11 通过后已删，2026-08-09 验收） |
+| AV-03 | 素材占位方案 | P1 | 🔄 | AV-02 | 开源授权样片已下载（Pexels 6 视频 + 8 图，五情绪全覆盖），`avatar/manifest.json` 已登记 6 条真实片段，2026-08-09 素材就位待验收 |
+| AV-04 | 情绪匹配与轮换策略 | P1 | ✅ | AV-01 | 情绪事件 → 选片，避免连续重复，随机+轮换（`avatar/emotion-matcher.ts` 已交付：有状态封装 pick/markPlayed/reset/getRecent，窗口滑动默认 5 自动避重，复用 AV-01；自检 12/12 + tsc 零错误，2026-08-09 验收） |
 
 ### client · 前端（M3 补充）
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| CL-01 | AvatarCanvas 组件 | P0 | 🔄 | AV-01 | `<video>` 素材播放 + 状态切换（idle/speaking/listening）（规格 `docs/tasks/CL-01-avatar-canvas.md`，依赖 AV-01 ✅ 可开工） |
+| CL-01 | AvatarCanvas 组件 | P0 | ✅ | AV-01 | `<video>` 素材播放 + 状态切换（idle/speaking/listening）（`client/src/components/AvatarCanvas.tsx` 已交付：状态/情绪 → 选片决策抽纯函数 `avatar-canvas-core.ts`（复用 AV-04 EmotionMatcher 避重），video 播放 + listening 暂停 + 播完轮换 + 无素材/加载失败降级卡通占位；配套最小初始化 Vite+React 前端工程（client/）；自检 13/13 + tsc 零错误 + vite build 通过 + dev server 可跑，2026-08-09 验收） |
 | CL-02 | useAvatar Hook | P1 | 📋 | CL-01 | 素材播放控制 + 情绪对齐 + 轮换逻辑 |
 
 ---
