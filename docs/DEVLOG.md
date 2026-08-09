@@ -5,6 +5,63 @@
 
 ---
 
+## 2026-08-09（AV-01 完成：clip-matcher 迁移与适配交付）
+
+### 做了什么
+- 从 `cybergirlfriend/server/avatar/clip-matcher.ts` 迁移素材匹配引擎到新架构 `avatar/clip-matcher.ts`
+- **契约适配**（module-contracts.md §2.5 ClipMatcher）：素材库改**构造注入**（`createClipMatcher(library)` 工厂，接口方法不再传 library）；`buildQueue` 目标时长单位**秒 → 毫秒**（`targetDurationMs`）；参数顺序调整（`buildQueue(targetDurationMs, emotion)`）；类型改名 `AvatarEmotion → Emotion`、`AvatarClip → Clip`（公共共享类型，契约 §3.6）
+- 保留核心逻辑：情绪筛选 → 新鲜池随机 → 全播过回退全池轮换 → 无素材返回 null（降级 Live2D）
+- **队列语义修正**：素材未耗尽时队列内优先不重复；目标超过素材总时长时允许循环回退全池（DESIGN §5.2「播完还没说完循环同情绪片段」），护栏 100 段防死循环
+- 用 `node --experimental-strip-types` 自检：**16/16 通过**（情绪过滤/避重复/全播回退/空库 null/毫秒时长覆盖/循环覆盖/护栏/短目标），临时验证脚本已删除
+- 仍遵守红线：纯逻辑零依赖、零 IO、零持久化（红线 1/5）
+
+### 决策
+- 迁移产物为**纯 TS 单文件 + 工厂函数**，不引入类（与 brain/hermes-runner 风格一致）
+- `Emotion`/`Clip` 类型在 avatar 模块自持（契约 §3.6 公共类型放各模块自持保证兼容）
+- 单元测试框架仍暂停，改用 Node 原生 TS 自检脚本验证（符合 BR-01 规格验收方式）
+
+### 阻塞 / 下一步
+- AV-02 manifest.json 设计（P0，无依赖）→ AV-04 情绪匹配与轮换（依赖 AV-01，可开工）
+- CL-01 AvatarCanvas 前端画布依赖 AV-01，可并行规划
+
+---
+
+## 2026-08-09（PS-01 完成：PersonaProvider 接口定义交付）
+
+### 做了什么
+- 交付 `persona/provider.ts`：契约 v1.2 对齐（module-contracts §2.4），导出 `PersonaProvider` 接口（listPersonas/getPersona/buildInstructions/switchPersona）+ `Persona`/`PersonaInfo` 类型 + `voiceConfig`/`postHistoryInstructions` 可选字段
+- 附赠 `isPersonaInfo` / `isPersona` 类型守卫（供 PS-02 解析 Hermes 返回 JSON 时校验，零依赖纯函数）
+- 验证：tsc strict 模式编译零报错；冒烟测试 4 用例全过（有效/无效 PersonaInfo、有效/无效 Persona）
+
+### 决策
+- 纯类型定义 + 类型守卫，零运行时依赖（ADR-007）；不实现具体逻辑，实现归 PS-02 HermesPersonaProvider
+
+### 阻塞 / 下一步
+- PS-02 HermesPersonaProvider 已解锁（依赖 PS-01 ✅ + BR-01 ✅）；BR-02 function-router 继续
+
+---
+
+## 2026-08-09（BR-01 完成：hermes-runner.ts 交付 + 实测验证通过）
+
+### 做了什么
+- 交付 `brain/hermes-runner.ts`：spawn `hermes -z "任务"` 子进程调用（binPath 取 `config.hermes.binPath` 绝对路径），120s 默认超时（可 `timeoutMs` 覆盖），1MB 输出上限防刷屏，stdout 捕获 trim，错误兜底（spawn 失败 / 非零退出码 / stderr 含 error|traceback|exception）
+- 契约对齐 v1.2：导出 `BrainRunner` / `BrainTask` / `BrainResult` + `brainRunner` 适配器 + default export，BR-02 function-router 可直接依赖
+- 实测验证（node --experimental-strip-types 原生试跑；项目无 tsconfig，按规格走"或"路线）：
+  - ✅ 正常调用 `runHermes({instruction:'1+1=?'})` → `ok:true`，output `"2"`（12.9s，真实 Hermes 调用）
+  - ✅ 超时兜底 `timeoutMs:100` → `ok:false`，error `"Hermes 任务超时（>100ms），已终止"`（117ms 触发）
+  - ✅ 错误兜底 binPath 不存在 → `ok:false`，error `"无法启动 Hermes：spawn Z:/nonexistent/hermes.exe ENOENT"`
+  - ✅ 顺带验证"文件优先"：有 apikeys.json 时 HERMES_BIN 环境变量不生效，正确使用文件内 binPath
+- TASKS.md BR-01 → ✅ DONE；TASKS-CONFIG.md §1/§4 同步；PROJECT_MEMORY.md 更新
+
+### 决策
+- 相对 import 带 `.ts` 后缀（`../config/loader.ts`）：Node 原生 type-strip 可直接运行，无需构建步骤
+- 不引入 typescript/@types/node（BR-01 只产出一个文件，spec 验收"tsc 或 node 试跑"二选一，原生试跑已覆盖行为验证）
+
+### 阻塞 / 下一步
+- 下一步：BR-02 function-router（依赖 BR-01 + AP-02）；PS-02 HermesPersonaProvider 已解锁（依赖 PS-01 + BR-01）
+
+---
+
 ## 2026-08-09（BR-01 规格产出：hermes-runner 实现文档 + 实测验证）
 
 ### 做了什么

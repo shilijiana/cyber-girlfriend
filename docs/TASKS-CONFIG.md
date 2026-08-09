@@ -44,10 +44,10 @@
 |------|------|-----------|------|
 | **config** | CF | 配置中心：密钥集中管理（文件优先、环境变量兜底） | ✅ 完成 |
 | **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01 完成 |
-| **persona** | PS | 人设接口（归 Hermes 维护）：PersonaProvider 抽象 | 🔄 AP-01 依赖 |
-| **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | 🔄 待执行 |
+| **persona** | PS | 人设接口（归 Hermes 维护）：PersonaProvider 抽象 | 🔄 PS-01 完成 |
+| **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | ✅ BR-01 完成 |
 | **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 📋 待执行 |
-| **avatar** | AV | 数字人：素材匹配引擎（方案已确认） | 📋 待执行 |
+| **avatar** | AV | 数字人：素材匹配引擎（AV-01 完成） | 🔄 AV-01 完成 |
 | **client** | CL | React 前端：聊天 UI / 画布 / 字幕 / 波形 | 📋 待执行 |
 | **docs** | DC | 文档体系：三文档工作流（本文件属于此模块） | ✅ 完成 |
 
@@ -164,7 +164,7 @@ export interface Persona {
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| PS-01 | PersonaProvider 接口定义 | P0 | 🔄 | - | `PersonaProvider` + `Persona`/`PersonaInfo` 类型定义完成 |
+| PS-01 | PersonaProvider 接口定义 | P0 | ✅ | - | `PersonaProvider` + `Persona`/`PersonaInfo` 类型定义完成 |
 | PS-02 | HermesPersonaProvider 实现 | P0 | 📋 | PS-01, BR-01 | 通过 `hermes -z` 获取/加载/切换人设，instructions 透传 |
 | PS-03 | 人设切换 API | P2 | 📋 | PS-02 | `POST /api/persona/switch` 切换活跃人设，无需重启 |
 
@@ -191,7 +191,7 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| BR-01 | hermes-runner.ts 实现 | P0 | 🔄 | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底 |
+| BR-01 | hermes-runner.ts 实现 | P0 | ✅ | - | `hermes -z "任务"` 子进程调用，120s 超时，stdout 捕获，错误兜底 |
 | BR-02 | function-router.ts 实现 | P0 | 📋 | BR-01, AP-02 | 拦截 function_call → 调 runner → function_call_output 写回 |
 | BR-03 | Hermes 可用性探测 | P1 | 📋 | BR-01 | `/api/brain/status` 返回版本与可用性 |
 | BR-04 | 超时与错误处理 | P1 | 📋 | BR-01 | 超时友好提示；Hermes 不可用降级纯 Qwen |
@@ -235,7 +235,7 @@ export interface BrainResult { ok: boolean; output: string; durationMs: number; 
 
 | ID | 任务 | 优先级 | 状态 | 依赖 | 验收标准 |
 |----|------|--------|------|------|----------|
-| AV-01 | clip-matcher 迁移与适配 | P0 | 📋 | - | 从 cybergirlfriend/ 迁移，适配新架构（方案已确认） |
+| AV-01 | clip-matcher 迁移与适配 | P0 | ✅ | - | 从 cybergirlfriend/ 迁移，适配新架构（方案已确认，自检 16/16 ✅） |
 | AV-02 | manifest.json 设计 | P0 | 📋 | - | 路径/情绪标签/时长/嘴型活跃度，结构完整 |
 | AV-03 | 素材占位方案 | P1 | 📋 | AV-02 | 开源样片 + 卡通兜底 |
 | AV-04 | 情绪匹配与轮换 | P1 | 📋 | AV-01 | 情绪事件 → 选片，避免连续重复 |

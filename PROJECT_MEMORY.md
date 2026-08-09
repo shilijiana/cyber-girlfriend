@@ -8,7 +8,7 @@
 - **创建时间**：2026-08-09
 - **简短描述**：**纯交互界面** Web 应用：云端 **Qwen-Audio-3.0-Realtime-Flash** 当"嘴和耳朵"（语音交互 + 人设快问快答），本地 **Hermes agent** 当"大脑"（具体事务执行 + 记忆，50+ 工具），中间用文本衔接（Function Calling 中转）。配套 **数字人素材库可视化**（情绪匹配引擎，运行时零 GPU）。**无记忆系统、无数据库**——记忆与事务全部归 Hermes 负责（老板 2026-08-09 明确）。
 - **架构总纲**：`docs/architecture/overall-architecture.md`（v1.1，任务模块目录：voice-shell/brain/persona/avatar + app/client + docs/assets/scripts/tests）
-- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成，剩余决策（路径 A/B、Hermes 后端模型、人设内容）待老板拍板后开工。
+- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 已开工——BR-01（brain/hermes-runner.ts）完成 ✅**（2026-08-09 实测通过：`hermes -z "1+1=?"` → `2`、超时兜底、错误兜底全过），剩余决策（路径 A/B、Hermes 后端模型、人设内容）待老板拍板。
 - **🔧 环境搭建已恢复（2026-08-09 撤销）**：~~环境搭建永久暂停~~（ADR-005）已撤销，子任务可按需执行 npm/pnpm install、Python 依赖安装、素材下载（fetch-avatars.sh）、工具链配置等环境类操作，交付可运行代码；仍遵守轻量化约束（运行时 5-6 纯 JS 依赖，ADR-007）。
 
 ## 目标
@@ -122,11 +122,15 @@ cybergirlfriend/
 - [ ] **方向确认后的 M1 重构**（~~测试框架/CI 暂停~~，~~环境搭建永久暂停~~已撤销，~~数据库切换取消~~）：
   - [ ] 去掉 @tencent-ai/agent-sdk，实现自研角色卡 + Prompt 组装器 + LLM 客户端
   - [ ] **无本地数据库**（原 better-sqlite3/node:sqlite 切换取消）
-  - [ ] Function Router（chat vs. work）+ Hermes Runner（子进程调用）
+  - [x] **Hermes Runner（BR-01）完成**（2026-08-09）：`brain/hermes-runner.ts` 交付并实测通过（`hermes -z "1+1=?"` → `2` / 超时兜底 / 错误兜底）
+  - [x] **PersonaProvider 接口（PS-01）完成**（2026-08-09）：`persona/provider.ts` 交付——`PersonaProvider` 接口（listPersonas/getPersona/buildInstructions/switchPersona）+ `Persona`/`PersonaInfo` 类型 + `isPersona`/`isPersonaInfo` 类型守卫，契约 v1.2 对齐，tsc strict 零报错
+  - [ ] Function Router（BR-02，chat vs. work）
+  - [ ] HermesPersonaProvider 实现（PS-02，依赖 PS-01 + BR-01，已解锁）
   - [ ] Git init + 首次提交
 - [ ] P2 工作集成增强（Hermes 常驻 + 多轮）
 - [ ] P3 S2S 语音回归（Qwen 端到端网关）
-- [ ] P4 素材库数字人
+- [x] **素材库数字人启动（AV-01）完成**（2026-08-09）：`avatar/clip-matcher.ts` 从 cybergirlfriend 迁移并适配契约 v1.2 §2.5——素材库构造注入（`createClipMatcher`）、buildQueue 毫秒单位、`AvatarEmotion/AvatarClip` 改公共类型 `Emotion/Clip`；自检 16/16 通过（node 原生 TS，未引入测试框架）
+- [ ] P4 素材库数字人（续）：AV-02 manifest.json 设计 / AV-04 情绪匹配与轮换 / CL-01 前端画布
 - [ ] P5 体验优化 + 收尾
 
 ---
