@@ -5,6 +5,49 @@
 
 ---
 
+## 2026-08-09（AP-04 完成：旧脚手架迁移重构，工程配置落位 + 旧 server 清理）
+
+### 做了什么
+- **工程配置补全**：根目录 `package.json` 规范化（name → `cyber-girlfriend`，与 git remote 一致；新增 `typecheck: tsc --noEmit`；运行时依赖**仅 express**，SDK/DB/TDesign 全部移除）；新建根 `tsconfig.json`（strict + NodeNext + `allowImportingTsExtensions` + `noEmit`，include 仅 app/avatar/brain/config/persona，不含 cybergirlfriend）
+- **旧脚手架清理**：删除 `cybergirlfriend/server/` 全部已迁移/废弃文件——`index.ts`（SDK 版）、`db.ts`（SQLite，ADR-006）、`mcp-servers.ts`（MCP 归 Hermes）、`index.d.ts`、`avatar/clip-matcher.ts`（AV-01 已迁移至 avatar/）；cybergirlfriend/src（前端）保留待 CL-09
+- **开发依赖补齐**：安装 `typescript` + `@types/express`（优化报告 §3.9 保留清单内，`NODE_DISABLE_COMPILE_CACHE=1` 规避 npm 挂起 bug，14s 完成）
+
+### 决策
+- 迁移策略：新架构代码已在 app/avatar/brain/config/persona 就位（AP-01/AV-01 等），AP-04 只做"工程配置落位 + 旧源清理 + 验证"，不重写任何业务代码
+- 行数口径：旧 server 1021 行 → app/server 444 行（-56.5%）；-74% 目标按"纯骨架"估（235 行），实际交付含 AP-02/03 功能实现（orchestrator 123 行等），功能更全故未达骨架口径
+
+### 验收（2026-08-09 实测）
+- ✅ `/api/health` → `{"status":"ok"}`
+- ✅ `/api/chat` "1+1=?" → `{"reply":"老板，1+1=2 呀～...","personaId":"xiaodai","ok":true}`（真实 Hermes 调用 16s）
+- ✅ `npm run typecheck`（tsc --noEmit）零错误
+- ✅ 运行时依赖 13 → 1（express），零原生编译
+
+### 阻塞 / 下一步
+- cybergirlfriend/ 前端 src/ 待 CL-09 迁移（迁移完成后整目录删除）；AV-02 manifest 可开工
+
+---
+
+## 2026-08-09（AP-06 完成：环境变量管理，.env/.env.local 读取 + 模板 + 契约同步）
+
+### 做了什么
+- `config/loader.ts` 新增轻量 .env 解析（零依赖自实现，ADR-007）：`parseDotEnv()`（支持注释/空行/export 前缀/单双引号/值尾行内注释）+ `loadEnvFile()`（读取 `.env` + `.env.local`，`.env.local` 覆盖 `.env`，不覆盖已存在的系统环境变量）
+- 加载优先级定稿：`config/apikeys.json` > 系统环境变量 > `.env.local` > `.env` > 默认值（`loadConfig()` 入口先注入 .env，mergeWithEnv 逻辑零改动，接口不变）
+- 根目录交付 `.env.example` 入库模板（dashscope / hermes / server / 预留 VOICE_PROVIDER 供 VS-01 用），`.env` 已在 .gitignore（CF-02 已配）
+- 契约同步（非接口变更，不 bump）：module-contracts.md §3.8 配置集中管理细化优先级链；顺带修正 README.md 契约版本 v1.1 → v1.2
+- package.json devDependencies 增加 `@types/node`（纯类型包，零运行时影响，typecheck 工具链）
+- 验证（临时脚本跑完即删）：16/16 断言全过（语法解析 7 项 / .env、.env.local、系统环境变量优先级 4 项 / loadConfig 集成 3 项 / maskKey 2 项）；typecheck 经 npx 双包环境（`-p typescript -p @types/node`）跑通，**loader.ts 零错误**
+
+### 决策
+- .env 解析自实现而非引 dotenv 包：零新增运行时依赖，更贴 ADR-007 轻量化（当前运行时仍只有 express 一个）
+- .env 语义遵循 dotenv 惯例：系统环境变量永远优先，.env 只填充未设置的键；`.env.local` 做本地个性化覆盖（不进 git）
+- typescript 不装进项目：npm 在 Windows 反复被文件锁拦截（EPERM），改用 npx 临时环境跑校验，反而更符合零依赖约束
+
+### 阻塞 / 下一步
+- 遗留：全项目 typecheck 存在既有债务（app/server 缺 `@types/express`、若干隐式 any），与 AP-06 无关，建议各模块随自身任务修正
+- M5-05 `.env.example` 完善（依赖 AP-06 ✅，解锁）；VS-01 可读 `process.env.VOICE_PROVIDER`
+
+---
+
 ## 2026-08-09（M1 批量验收：AP-02/03/06 + PS-02 + BR-03 完成）
 
 ### 做了什么

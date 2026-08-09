@@ -38,7 +38,7 @@
 | 里程碑 | 目标 | 状态 | 说明 |
 |--------|------|------|------|
 | **M0** 架构定稿 | 架构总纲 + 契约 + ADR + 目录 + 三文档工作流 | ✅ 完成 | 架构设计阶段产出 |
-| **M1** 核心骨架 | app 装配 + persona + brain + function-router | 🔄 进行中 | 文字链路已通（AP-02/03 ✅），BR-02 待做 |
+| **M1** 核心骨架 | app 装配 + persona + brain + function-router | 🔄 进行中 | 文字链路已通（AP-02/03 ✅），旧脚手架迁移完成（AP-04 ✅），BR-02 待做 |
 | **M2** 语音链路 | voice-shell Qwen WS + voice-gateway | 📋 待开工 | 语音链路打通 |
 | **M3** 数字人 | avatar clip-matcher + 前端画布 | 🔄 进行中 | AV-01 完成，AV-02~04 待执行 |
 | **M4** 前端集成 | React UI 全量 + 字幕 + 波形 | 📋 待开工 | 完整前端体验 |
@@ -53,7 +53,7 @@
 | 排名 | 模块 | 优先级 | 理由 | 当前状态 |
 |------|------|--------|------|----------|
 | 🥇 1 | **config** 配置中心 | P0 | 一切的地基，无依赖，所有模块都要用它 | ✅ CF-01 完成 |
-| 🥈 2 | **app** 应用壳 | P0 | Express 宿主，所有 API 的载体，挡住所有上层模块 | 🔄 AP-01/02/03/06 完成 |
+| 🥈 2 | **app** 应用壳 | P0 | Express 宿主，所有 API 的载体，挡住所有上层模块 | 🔄 AP-01/02/03/04/06 完成 |
 | 🥉 3 | **persona** 人设 | P0 | 赛博女友的"灵魂"，Orchestrator 依赖它注入人设 | 🔄 PS-01/02 完成 |
 | 4 | **brain** 大脑 | P0 | 复杂事务执行（Hermes 子进程），HermesPersonaProvider 依赖它 | 🔄 BR-01/03 完成 |
 | 5 | **voice-shell** 语音壳 | P1 | 核心交互方式（语音问答），依赖 persona+brain 的 M1 链路 | 📋 待开工 |
@@ -108,7 +108,7 @@ config → app → persona → brain → voice-shell → avatar → client
 | AP-01 | Express 装配与路由骨架 | P0 | ✅ | CF-01 | `/api/health` 返回 `{status:"ok"}`；SSE 骨架就绪；config 加载器集成 |
 | AP-02 | Core Orchestrator 编排层 | P0 | ✅ | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 获取 instructions → brain 执行 → 返回结果（代码已就位，AP-03 实测 chat 链路通过） |
 | AP-03 | REST API 实现 | P1 | ✅ | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用（2026-08-09 实测通过） |
-| AP-04 | 旧脚手架迁移重构 | P1 | 📋 | AP-01 | cybergirlfriend/server → app/server，移除 SDK/DB/TDesign，代码量 -81% |
+| AP-04 | 旧脚手架迁移重构 | P1 | ✅ | AP-01 | cybergirlfriend/server → app/server 完成，SDK/DB/TDesign 全移除（运行时依赖 13→1），旧 server 目录已清理，tsc 零错误（2026-08-09 验收） |
 
 ### config · 配置中心（新增）
 

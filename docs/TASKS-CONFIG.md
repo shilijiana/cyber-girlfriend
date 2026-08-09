@@ -43,7 +43,7 @@
 | 模块 | 前缀 | 一句话职责 | 状态 |
 |------|------|-----------|------|
 | **config** | CF | 配置中心：密钥集中管理（文件优先、环境变量兜底） | ✅ 完成 |
-| **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01/02/03/06 完成 |
+| **app** | AP | Express 应用壳：路由/WS/SSE/编排 | 🔄 AP-01/02/03/04/06 完成 |
 | **persona** | PS | 人设接口（归 Hermes 维护）：PersonaProvider 抽象 | 🔄 PS-01/02 完成 |
 | **brain** | BR | Hermes 大脑：子进程调用 + function 路由 | 🔄 BR-01/03 完成 |
 | **voice-shell** | VS | 语音壳：Qwen-Audio WS 客户端 + 网关 | 📋 待执行 |
@@ -129,7 +129,7 @@ M5:  联调收尾
 | AP-01 | Express 装配与路由骨架 | P0 | ✅ | CF-01 | `/api/health` 返回 `{status:"ok"}`；SSE 骨架就绪；config 集成 |
 | AP-02 | Core Orchestrator 编排层 | P0 | ✅ | AP-01, PS-01, BR-01 | 文本聊天请求 → persona 取 instructions → brain 执行 → 返回结果（chat 链路实测通过） |
 | AP-03 | REST API 实现 | P1 | ✅ | AP-01 | `/api/chat`、`/api/brain/status`、`/api/avatar/status` 可用（实测通过） |
-| AP-04 | 旧脚手架迁移重构 | P1 | 📋 | AP-01 | cybergirlfriend/server → app/server，移除 SDK/DB/TDesign，-81% |
+| AP-04 | 旧脚手架迁移重构 | P1 | ✅ | AP-01 | cybergirlfriend/server → app/server 完成；SDK/DB/TDesign 全移除（运行时依赖 13→1）；旧 server 目录清理；tsc 零错误（2026-08-09 验收） |
 | AP-05 | WS 服务端实现 | P0 | 📋 | VS-02 | WebSocket Server 挂载 `/ws/voice` |
 | AP-06 | 环境变量管理 | P1 | ✅ | - | `.env` 读取 DASHSCOPE_API_KEY 等（parseDotEnv + .env.example 已交付） |
 

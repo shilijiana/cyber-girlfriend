@@ -8,7 +8,7 @@
 - **创建时间**：2026-08-09
 - **简短描述**：**纯交互界面** Web 应用：云端 **Qwen-Audio-3.0-Realtime-Flash** 当"嘴和耳朵"（语音交互 + 人设快问快答），本地 **Hermes agent** 当"大脑"（具体事务执行 + 记忆，50+ 工具），中间用文本衔接（Function Calling 中转）。配套 **数字人素材库可视化**（情绪匹配引擎，运行时零 GPU）。**无记忆系统、无数据库**——记忆与事务全部归 Hermes 负责（老板 2026-08-09 明确）。
 - **架构总纲**：`docs/architecture/overall-architecture.md`（v1.1，任务模块目录：voice-shell/brain/persona/avatar + app/client + docs/assets/scripts/tests）
-- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 核心骨架进行中——BR-01（brain/hermes-runner.ts）✅、PS-01（persona/provider.ts）✅、AP-01（Express 装配）✅、AP-02（Core Orchestrator）✅、AP-03（REST API）✅**（2026-08-09 实测通过：`hermes -z "1+1=?"` → `2`；`/api/chat` 走 persona→brain 完整链路返回小呆口吻答案、`/api/brain/status` 探测到 Hermes v0.20.0、`/api/avatar/status` 返回 clip 引擎），剩余决策（路径 A/B、Hermes 后端模型、人设内容）待老板拍板。
+- **当前任务定位（老板 2026-08-09 指示）**：核心架构设计任务已完成；**M1 核心骨架进行中——BR-01（brain/hermes-runner.ts）✅、PS-01（persona/provider.ts）✅、AP-01（Express 装配）✅、AP-02（Core Orchestrator）✅、AP-03（REST API）✅、AP-04（旧脚手架迁移重构）✅**（2026-08-09 实测通过：`hermes -z "1+1=?"` → `2`；`/api/chat` 走 persona→brain 完整链路返回小呆口吻答案、`/api/brain/status` 探测到 Hermes v0.20.0、`/api/avatar/status` 返回 clip 引擎；AP-04 迁移后根目录 `npm run typecheck` 零错误），剩余决策（路径 A/B、Hermes 后端模型、人设内容）待老板拍板。
 - **🔧 环境搭建已恢复（2026-08-09 撤销）**：~~环境搭建永久暂停~~（ADR-005）已撤销，子任务可按需执行 npm/pnpm install、Python 依赖安装、素材下载（fetch-avatars.sh）、工具链配置等环境类操作，交付可运行代码；仍遵守轻量化约束（运行时 5-6 纯 JS 依赖，ADR-007）。
 
 ## 目标
@@ -30,25 +30,38 @@
 | 实时传输 | WebSocket / WebRTC（前端 ↔ 后端语音网关） | |
 | MCP | `mcpServers` 配置：stdio（Hermes/VSCODE/CODEX）+ http（Work Buddy） | 官方 SDK 文档 sdk-mcp |
 
-## 初始结构（规划）
+## 初始结构（AP-04 迁移重构后的实际目录，2026-08-09）
 
 ```
-cybergirlfriend/
-├── server/                 # Express 后端：Agent SDK 接入、SSE、语音网关、MCP 挂载
-│   ├── index.ts
-│   ├── voice-gateway.ts    # 语音流中继（浏览器 <-> S2S 服务）
-│   └── db.ts               # SQLite 会话/消息持久化
-├── src/                    # React 前端
-│   ├── components/         # 聊天 UI（脚手架自带）+ 数字人画布组件
-│   ├── avatar/             # Live2D/VRM 渲染、表情驱动、口型驱动
-│   ├── voice/              # 麦克风采集、播放、音频能量分析
-│   ├── hooks/              # useChat / useVoice / useAvatar
-│   └── pages/
-├── mcp/                    # 各 MCP 服务器配置与说明（.mcp.json / mcp-servers.ts）
-├── assets/                 # Live2D 模型 / VRM 模型 / 表情贴图
-├── data/chat.db
-├── .env.example            # CODEBUDDY_API_KEY + 各 S2S/MCP 密钥
-└── README.md / DEVELOPMENT.md
+赛博女友/
+├── config/                  # 配置中心（CF ✅）：密钥集中管理
+│   ├── apikeys.json         # 实际密钥（gitignore，不入库）
+│   ├── apikeys.example.json # 模板（入库）
+│   └── loader.ts            # 文件优先、环境变量兜底（+ .env/.env.local 解析）
+├── app/                     # 应用壳（AP-01/02/03/04/06 ✅）
+│   └── server/
+│       ├── index.ts         # Express 装配 + SSE 骨架 + 条件 listen
+│       ├── routes.ts        # REST API（health/chat/brain/avatar）
+│       ├── orchestrator.ts  # Core Orchestrator 编排层（persona→brain）
+│       └── default-persona-provider.ts  # 占位人设（PS-02 交付后替换注入）
+├── brain/                   # Hermes 大脑（BR-01/03 ✅）
+│   ├── hermes-runner.ts     # hermes -z 子进程调用（120s 超时、错误兜底）
+│   └── hermes-runner-spec.md
+├── persona/                 # 人设接口（PS-01/02 ✅）
+│   ├── provider.ts          # PersonaProvider 抽象 + 类型守卫
+│   └── hermes-persona-provider.ts  # HermesPersonaProvider（hermes -z 获取）
+├── avatar/                  # 数字人素材匹配（AV-01 ✅）
+│   └── clip-matcher.ts      # 情绪→选片→队列，纯函数零依赖
+├── client/                  # React 前端（CL 待执行，仅有 README）
+├── voice-shell/             # 语音壳（VS 待执行，仅有 README）
+├── assets/avatars/          # 素材库（gitignore，fetch-avatars.sh 下载）
+├── docs/                    # 文档中心（BLUEPRINT/TASKS/DEVLOG/WORKFLOW/架构/ADR）
+├── cybergirlfriend/         # 旧脚手架（server 已清空删除，src/ 待 CL-09 迁移后整体删除）
+├── package.json             # 运行时依赖仅 express；devDeps: @types/node/typescript/@types/express
+├── tsconfig.json            # strict + NodeNext + allowImportingTsExtensions + noEmit
+├── .env.example             # 环境变量模板（入库）
+├── .gitignore
+└── PROJECT_MEMORY.md
 ```
 
 ## 关键设计决策
@@ -125,8 +138,9 @@ cybergirlfriend/
   - [x] **Hermes Runner（BR-01）完成**（2026-08-09）：`brain/hermes-runner.ts` 交付并实测通过（`hermes -z "1+1=?"` → `2` / 超时兜底 / 错误兜底）
   - [x] **PersonaProvider 接口（PS-01）完成**（2026-08-09）：`persona/provider.ts` 交付——`PersonaProvider` 接口（listPersonas/getPersona/buildInstructions/switchPersona）+ `Persona`/`PersonaInfo` 类型 + `isPersona`/`isPersonaInfo` 类型守卫，契约 v1.2 对齐，tsc strict 零报错
   - [x] **Core Orchestrator（AP-02）代码就位 + REST API（AP-03）完成**（2026-08-09）：`app/server/orchestrator.ts`（persona→brain 编排层）+ `default-persona-provider.ts`（占位人设）+ `routes.ts` 三接口（/api/chat /api/brain/status /api/avatar/status）实测全通过；根目录新建 package.json（express ^4.18.2）
+  - [x] **旧脚手架迁移重构（AP-04）完成**（2026-08-09）：根 `package.json` 规范化（name=cyber-girlfriend + typecheck 脚本）、新建 `tsconfig.json`（strict/NodeNext/allowImportingTsExtensions）；删除 `cybergirlfriend/server/` 全部废弃文件（db.ts/mcp-servers.ts/index.ts/index.d.ts/avatar/clip-matcher.ts）；安装 typescript+@types/express 开发依赖；运行时依赖 13→1（仅 express）；`npm run typecheck` 零错误、`/api/health`+`/api/chat` 实测通过
   - [ ] Function Router（BR-02，chat vs. work）
-  - [ ] HermesPersonaProvider 实现（PS-02，依赖 PS-01 + BR-01，已解锁）
+  - [x] **HermesPersonaProvider 实现（PS-02）完成**（2026-08-09）：`persona/hermes-persona-provider.ts` 交付（hermes -z 获取人设，JSON 容错 + 类型守卫）
   - [ ] Git init + 首次提交
 - [ ] P2 工作集成增强（Hermes 常驻 + 多轮）
 - [ ] P3 S2S 语音回归（Qwen 端到端网关）
@@ -135,4 +149,4 @@ cybergirlfriend/
 - [ ] P5 体验优化 + 收尾
 
 ---
-*最后更新：2026-08-09（纯交互界面定位：删记忆/数据库，事务与记忆归 Hermes；M1 进展：BR-01/PS-01/AP-01/AP-02/AP-03 ✅）*
+*最后更新：2026-08-09（纯交互界面定位：删记忆/数据库，事务与记忆归 Hermes；M1 进展：BR-01/PS-01/02/AP-01/02/03/04/06 ✅；AP-04 迁移后运行时依赖 13→1，tsc 零错误）*
