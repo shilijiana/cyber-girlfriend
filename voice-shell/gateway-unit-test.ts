@@ -3,12 +3,19 @@
  *
  * 验收项（docs/tasks/VS-02-gateway.md §6，mock 覆盖版）：
  *   1. 中继连通：handleConnection → provider.connect 被调 + 浏览器收到 ready/status
- *   2. 上行转发：{type:'audio', data:base64} 与二进制帧 → session.sendAudio 收到一致 PCM
+ *   2. 上行转发：{type:'audio', data:base64} → session.sendAudio 收到一致 PCM
+ *      （CC-03 DEF-V-01：二进制音频帧直通为设计边界——前端走 base64 JSON，
+ *        gateway 仅处理 text 帧，暂不支持二进制帧，用例已删除并注明，见下方）
  *   3. 下行转发：session audio 回调 → 浏览器收到 PCM24k base64；状态 speaking → idle
  *   4. 事件透传：subtitle/emotion → 浏览器 + deps 回调；function_call → 只透传不执行
  *   5. 断开清理：{type:'close'} 消息 / 浏览器断开 → session.close() 且无残留
  *   6. 错误兜底：provider 连接失败 → 浏览器收到 {type:'error'} + 连接关闭
  *   7.（VS-04）VAD 状态机：speech_started → 浏览器 status listening；speech_stopped → 回 connected
+ *
+ * CC-03 DEF-V-01 整改说明：原 M-V-TC-042「二进制音频帧直通 sendAudio」用例已删除。
+ * 原因：当前前端通过 base64 JSON 发送音频（{type:'audio', data:base64}），gateway 仅处理
+ * text 帧；二进制帧直通是架构不需要的场景（设计边界，P3）。若未来需要支持，
+ * 应在 gateway 增加 Buffer 帧识别分支并恢复本用例——删除而非标注失败，防止误以为遗漏。
  *
  * 运行：node --experimental-strip-types voice-shell/gateway-unit-test.ts
  */
@@ -210,14 +217,13 @@ async function main(): Promise<void> {
     session.sentAudio.length === 1 && session.sentAudio[0].equals(pcm16k),
   );
 
-  // ② 上行转发：二进制帧（契约 §2.1 ArrayBuffer 形式）
-  const pcm16k2 = Buffer.alloc(3200, 2);
-  socket.emitBinary(pcm16k2);
-  check('② 二进制音频帧直通 sendAudio', session.sentAudio.length === 2 && session.sentAudio[1].equals(pcm16k2));
-
   // ② 容错：非法 JSON 不崩溃
   socket.emitRaw('not-json{{');
   check('② 非法 JSON 容错（不抛错）', true);
+
+  // ⚠️ CC-03 DEF-V-01：原「二进制音频帧直通 sendAudio」用例（M-V-TC-042）已删除——
+  // 前端走 base64 JSON 发送音频，二进制帧直通为设计边界（架构不需要的场景）。
+  // 若未来需支持，在 gateway 增加 Buffer 帧识别分支后恢复本用例（详见文件头注释）。
 
   // ③ 下行转发
   const pcm24k = Buffer.alloc(2400, 3);

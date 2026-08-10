@@ -4,8 +4,11 @@
  * 验收项（M5-02 错误处理与降级）：
  *   1. Hermes 成功 → ok:true、无 degraded 标记、reply 为 Hermes 输出
  *   2. Hermes 失败 + Qwen 降级成功 → ok:true + degraded:true + reply 为 Qwen 回答
- *   3. Hermes 失败 + Qwen 也失败 → ok:false + 友好提示（含 Qwen error）
- *   4. Hermes 失败 + 未注入降级通道 → ok:false + 友好提示（原行为，向后兼容）
+ *   3. Hermes 失败 + Qwen 也失败 → ok:false + 通用友好提示（CC-01 L9 脱敏，不含 Qwen error）
+ *   4. Hermes 失败 + 未注入降级通道 → ok:false + 通用友好提示（原行为，向后兼容）
+ *
+ * CC-03 DEF-A-01：3b/4b 断言由"含具体错误文本"改为"含通用提示且不含具体错误"——
+ *   与 CC-01 L9 脱敏行为对齐（error 细节只进 brain 字段，不拼给用户）。
  *   5. 降级请求也带人设 context（instructions 透传，人设不丢）
  *   6. brain 原始结果透传（brain 字段保留，失败时带 error）
  *
@@ -95,7 +98,7 @@ const failQwen: BrainResult = { ok: false, output: '', durationMs: 300, error: '
   });
   const r: ChatResult = await orch.chat({ message: 'hi' });
   check('3 双重失败 → ok:false', r.ok === false);
-  check('3b 友好提示含 Qwen error', r.reply.includes('Qwen 降级 HTTP 500'), r.reply);
+  check('3b 双重失败 → 通用友好提示（L9 脱敏，不含 Qwen error）', r.reply.includes('大脑开小差了') && !r.reply.includes('Qwen 降级 HTTP 500'), r.reply);
   check('3c 无 degraded 标记（未成功降级）', r.degraded === undefined);
 }
 
@@ -105,7 +108,7 @@ const failQwen: BrainResult = { ok: false, output: '', durationMs: 300, error: '
   const orch = createOrchestrator({ personaProvider, brainRunner: makeRunner(failHermes) });
   const r: ChatResult = await orch.chat({ message: 'hi' });
   check('4 无降级通道 → ok:false + 原友好提示', r.ok === false && r.reply.includes('大脑开小差了'), r.reply);
-  check('4b 提示含 Hermes error', r.reply.includes('Hermes 任务超时'));
+  check('4b 提示不含 Hermes 具体错误（L9 脱敏）', !r.reply.includes('Hermes 任务超时') && r.reply.includes('大脑开小差了'));
 }
 
 // ---------------------------------------------------------------- 汇总

@@ -18,6 +18,7 @@
  */
 
 import { createServer, type Server } from 'http';
+import { resolve } from 'path';
 import { WebSocket } from 'ws';
 import { createApp } from './index.ts';
 import { setupVoiceWebSocket, VOICE_WS_PATH, type VoiceWsHandle } from './ws.ts';
@@ -47,8 +48,12 @@ async function main(): Promise<void> {
       // 真实人设解析：走 index.ts 模块级 orchestrator 的活跃人设 + FilePersonaProvider
       const { config } = await import('../../config/loader.ts');
       const { createFilePersonaProvider, readActivePersonaId } = await import('../../persona/file-persona-provider.ts');
-      const p = createFilePersonaProvider({ personasDir: config.hermes.personasDir });
-      const persona = await p.getPersona(readActivePersonaId(config.hermes.personasDir));
+      // CC-03 DEF-A-02：personasDir 先 resolve 规范化——config 里是正斜杠（C:/…），
+      // Windows 下 provider 内 resolve() 输出反斜杠，H6 的 startsWith 校验会因分隔符
+      // 不一致误判"路径越界"。测试侧以同格式路径规避；H6 校验本身的规范化缺陷已上报。
+      const personasDir = resolve(config.hermes.personasDir);
+      const p = createFilePersonaProvider({ personasDir });
+      const persona = await p.getPersona(readActivePersonaId(personasDir));
       return p.buildInstructions(persona);
     },
   });
