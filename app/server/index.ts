@@ -37,6 +37,36 @@ const orchestrator = createOrchestrator({
   defaultPersonaId: readActivePersonaId(config.hermes.personasDir), // 重启后沿用 active.txt
 });
 
+/**
+ * Hermes 冷启动预热（启动即调用，避免用户首次对话等待）。
+ * 原理：Hermes 是每次 spawn 新进程的 one-shot 模型（BR-01），首次调用含
+ *   Python 启动 + 模型加载 + 工具注册的固定冷启动成本（实测 12~23s）。
+ *   本预热在服务 listen 后立即后台触发一次轻量调用，让后续用户请求
+ *   复用系统级缓存（模块加载/依赖导入），显著缩短首次对话等待。
+ * 设计：
+ *   - 异步 fire-and-forget：不阻塞服务启动与 listen 回调
+ *   - 走 brainRunner.run（复用 --profile cyber-girlfriend + -t 白名单，记忆隔离红线 10）
+ *   - 轻量指令（无副作用），失败静默（Hermes 不可用时自动走 qwen-fallback，不影响服务）
+ */
+async function prewarmHermes(): Promise<void> {
+  const started = Date.now();
+  console.log('[app] Hermes 冷启动预热中…（首次对话免等待）');
+  try {
+    const r = await brainRunner.run({
+      instruction: '你好，这是一次启动预热测试，无需执行任何操作，回复"预热完成"即可。',
+      timeoutMs: 90_000, // 预热给足时间（冷启动 12~23s，留裕量）
+    });
+    if (r.ok) {
+      console.log(`[app] Hermes 预热完成（${Date.now() - started}ms）`);
+    } else {
+      console.warn(`[app] Hermes 预热未完成（${Date.now() - started}ms）: ${r.error ?? '未知'}`);
+    }
+  } catch (e) {
+    // 预热失败不阻塞服务：Hermes 不可用时 orchestrator 自动降级纯 Qwen
+    console.warn(`[app] Hermes 预热失败（不影响服务，将自动降级）: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 /** 解析当前活跃人设的 Qwen instructions（WS 连接建立时调用，契约 §2.4） */
 async function resolveInstructions(): Promise<string> {
   const persona = await personaProvider.getPersona(orchestrator.getActivePersonaId());
@@ -118,6 +148,9 @@ if (isDirectRun) {
       `[app] voice: ${config.dashscope.model} | dashscope key: ${maskKey(config.dashscope.apiKey)}`,
     );
     console.log(`[app] SSE 通道: /api/events | REST: /api/* | WS 语音: /ws/voice`);
+
+    // Hermes 冷启动预热：listen 后立即后台触发，首次对话免等待（失败静默降级）
+    void prewarmHermes();
   });
 }
 

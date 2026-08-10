@@ -5,6 +5,26 @@
 
 ---
 
+## 2026-08-11（Hermes 冷启动预热：启动即加载，首次对话免等待）
+
+### 做了什么
+- 老板要求"启动赛博女友时就冷启动加载 Hermes，避免等待时间"→ 实现预热：
+  - `app/server/index.ts` 新增 `prewarmHermes()`：listen 后立即后台触发一次轻量 Hermes 调用（fire-and-forget，不阻塞服务）
+  - 复用 `brainRunner.run`（自动带 `--profile cyber-girlfriend` + 工具白名单，记忆隔离红线 10 不破）
+  - 失败静默降级（Hermes 不可用自动走 qwen-fallback，不影响服务）
+- 实测：启动后 8.5s 预热完成；预热后首次对话 10.9s（对比未预热 20~39s 显著改善）
+- 清理 ACP 排查临时文件（.tmp-acp-*、.hermes-answer.txt）
+
+### 决策
+- 预热用轻量指令（无副作用），timeout 90s 给足冷启动裕量
+- 当前仍是 one-shot 模式（每次对话 spawn 新进程），预热只省模块加载缓存成本；**治本方案 ACP 常驻仍在排查**
+
+### 阻塞 / 下一步
+- ACP 常驻验证（codebuddy MCP 卡点已定位，待验证）
+- 系统测试执行（SYS-01~12）
+
+---
+
 ## 2026-08-10（应用手册产出：面向终端用户的完整手册）
 
 ### 做了什么
