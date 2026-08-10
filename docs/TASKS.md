@@ -161,8 +161,9 @@ config → app → persona → brain → voice-shell → avatar → client
 
 | ID | 任务 | 优先级 | 状态 | 验收标准 | 配套文档 |
 |----|------|--------|------|----------|----------|
-| CC-01 | 已交付代码审查 | P1 | 📋 文档就绪 | 审查全部 36 个核心文件，报告含分级问题+合规检查+契约对照 | 说明 `docs/reviews/CC-01_说明文档.md` + 反馈 `docs/reviews/CC-01_反馈文档.md` |
-| CC-02 | 依赖与安全审计 | P1 | 📋 文档就绪 | 依赖清单分析 + npm audit + 配置/密钥检查 + 建议 | 说明 `docs/reviews/CC-02_说明文档.md` + 反馈 `docs/reviews/CC-02_反馈文档.md` |
+| CC-01 | 已交付代码审查 | P1 | ✅ | 审查全部 36 个核心文件，报告含分级问题+合规检查+契约对照（2026-08-11 完成：48 问题；整改见 CC-01-02 整改文档） | 说明 `docs/reviews/CC-01_说明文档.md` + 反馈 `docs/reviews/CC-01_反馈文档.md` |
+| CC-02 | 依赖与安全审计 | P1 | ✅ | 依赖清单分析 + npm audit + 配置/密钥检查 + 建议（2026-08-11 完成：依赖最小化达标，esbuild/vite 漏洞已随整改修复） | 说明 `docs/reviews/CC-02_说明文档.md` + 反馈 `docs/reviews/CC-02_反馈文档.md` |
+| CC-03 | 测试缺陷整改 | P1 | 🔄 已出卡 | 整改 DEF-A-01/DEF-A-02/DEF-V-01 + 补 M-P/M-C 测试文件；重跑 312 用例全绿 | 说明 `docs/reviews/CC-03_测试缺陷整改说明.md` + 记录 `docs/reviews/CC-03_测试缺陷整改记录.md` |
 
 ---
 
