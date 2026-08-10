@@ -85,6 +85,7 @@ Express 后端（Core Orchestrator，自研 ~400 行）
 | Claude Code 审查配套 | 说明：`docs/reviews/CC-01_说明文档.md`、`docs/reviews/CC-02_说明文档.md`；反馈：`docs/reviews/CC-01_反馈文档.md`、`docs/reviews/CC-02_反馈文档.md` |
 | 单模块测试 | 计划：`docs/reviews/单模块测试计划.md`；执行/整改：`docs/reviews/单模块测试执行与整改文档.md`；报告：`docs/reviews/test-reports/` |
 | 系统测试 | 计划：`docs/reviews/系统测试计划.md`（12 场景端到端，L3 真实链路）；执行/整改：`docs/reviews/系统测试执行与整改文档.md`（DEF-SYS-* 缺陷体系） |
+| 应用手册 | `docs/应用手册.md`（面向终端用户：概述/功能清单/使用指南/设置/FAQ/版本） |
 | 备选方案对比 | `docs/research/Qwen3-Omni-调研笔记.md`、`docs/research/豆包Seeduplex-调研报告.md` |
 | 当前任务与进度 | `docs/TASKS.md` |
 | 开发日志 | `docs/DEVLOG.md` |
