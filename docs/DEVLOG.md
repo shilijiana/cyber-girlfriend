@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-08-11（CC-02 依赖与安全审计：红线 5/8 全达标，client 2 个开发环境漏洞）
+
+### 做了什么
+- Claude Code 执行 CC-02 依赖与安全审计：
+  - 根 package.json：express + ws 两个运行时依赖，零漏洞 ✅
+  - client package.json：react + react-dom 两个运行时依赖，2 个漏洞（esbuild moderate + vite high，仅影响开发环境）
+  - 红线 5（依赖最小化）✅ 完全达标：根仅 2 个纯 JS 运行时依赖，client 仅 2 个
+  - 红线 8（配置集中管理）✅ 完全达标：无硬编码密钥，apikeys.json 被 .gitignore 忽略
+  - tsconfig 严格模式（根 + client 均 `strict: true`）✅
+  - .gitignore 全面覆盖（依赖/构建/密钥/素材/临时/编辑器）✅
+- 报告：`docs/reviews/dependency-audit-2026-08-11.md`
+- 反馈文档：`docs/reviews/CC-02_反馈文档.md`
+
+### 决策
+- esbuild/vite 漏洞仅影响开发环境（`vite dev`），生产构建不受影响——可接受风险或升级到 esbuild@0.28+ / vite@7.0+
+- express 4.x → 5.x 不急（4.x 稳定 LTS）
+
+### 阻塞 / 下一步
+- esbuild/vite 升级决策（老板拍板：接受风险 or 升级验证）
+- CC-01/02 全部完成，M5 收尾阶段可推进
+
+---
+
 ## 2026-08-11（CC-01 整改执行完成：47/48 问题清零，全量回归通过）
 
 ### 做了什么
@@ -28,6 +51,24 @@
 ### 阻塞 / 下一步
 - 提交整改代码 + 文档（`fix: CC-01 整改`）
 - 待老板核对整改文档；CC-02 审计可并行派；认证机制 / L11 / M5-01 ACP 常驻为后续任务
+
+---
+
+## 2026-08-11（CC-02 审计完成：整改文档并入 CC-02 记录区）
+
+### 做了什么
+- Claude Code 完成 **CC-02 依赖审计**（反馈 + 报告 `dependency-audit-2026-08-11.md`）
+- 审计结论：**依赖最小化完全达标**（根 2 运行时：express+ws；client 2：react+react-dom）、密钥合规，仅 client 开发工具链 esbuild@0.21.5（vite 传递依赖）存在漏洞（high 1 + moderate 1，仅影响开发环境）
+- 更新两份整改文档：
+  - `CC-01-02_整改说明文档.md` v1.1：新增 CC-02 整改范围（P1 必修 esbuild/vite 升级）+ 阶段 4.5 实施步骤 + 验收标准加 audit 复扫
+  - `CC-01-02_整改文档.md` v1.1：新增 §1.4 CC-02 整改记录区 + 回归表加 audit/voice 验证项 + 总结论更新
+
+### 决策
+- CC-02 整改并入同一整改任务（P1 必修 esbuild/vite 升级，express 5.x 仅评估）
+- 升级后必须验证 test:voice（esbuild 打包）无回归
+
+### 阻塞 / 下一步
+- 派整改子任务执行：CC-01 已完成 47/48（仅 L11 遗留）+ CC-02 待填（esbuild/vite 升级）
 
 ---
 
