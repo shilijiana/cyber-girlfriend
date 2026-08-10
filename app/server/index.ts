@@ -10,11 +10,20 @@
  *   personaProvider/orchestrator 提升为模块级单例：REST（createApiRouter）与 WS
  *   （resolveInstructions）共享同一人设状态，切换人设两端一致。
  *
+ * CC-01 整改：
+ *   - M3：shutdown 防重入（SIGINT+SIGTERM 快速连续触发只关一次）
+ *   - L1：isDirectRun 改用 import.meta.url 比对（原 process.argv[1].endsWith 脆弱）
+ *   - L2：setTimeout(...).unref() 移除多余可选链（Node 22 必有 unref）
+ *   - L3：personaProvider/orchestrator 改懒加载 getter（import 不触发文件 IO，测试友好）
+ *   - L4：预热走完整链路（persona instructions + brain），非仅 brain
+ *
  * 模块边界：仅应用壳，不直接 import persona/brain 实现（通过 orchestrator 注入）。
  */
 import express from 'express';
 import type { Express } from 'express';
 import { createServer } from 'http';
+import { resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { config, maskKey } from '../../config/loader.ts';
 import { createApiRouter } from './routes.ts';
 import { createOrchestrator } from './orchestrator.ts';
@@ -25,17 +34,27 @@ import {
 } from '../../persona/file-persona-provider.ts';
 import { brainRunner } from '../../brain/hermes-runner.ts';
 import { qwenFallbackRunner } from '../../brain/qwen-fallback.ts';
+import type { PersonaProvider } from '../../persona/provider.ts';
+import type { CoreOrchestrator } from './orchestrator.ts';
 
-// 模块级单例：createApp（REST）与 WS 启动共用，保证活跃人设状态一致（AP-05）
-const personaProvider = createFilePersonaProvider({
-  personasDir: config.hermes.personasDir,
-});
-const orchestrator = createOrchestrator({
-  personaProvider,
-  brainRunner,
-  fallbackRunner: qwenFallbackRunner, // M5-02：Hermes 不可用 → 降级纯 Qwen 文本对话
-  defaultPersonaId: readActivePersonaId(config.hermes.personasDir), // 重启后沿用 active.txt
-});
+// L3：单例懒加载（import 模块不触发文件 IO；首次真正调用才读 personas 目录/active.txt）
+let personaProvider: PersonaProvider | null = null;
+function getPersonaProvider(): PersonaProvider {
+  personaProvider ??= createFilePersonaProvider({
+    personasDir: config.hermes.personasDir,
+  });
+  return personaProvider;
+}
+let orchestrator: CoreOrchestrator | null = null;
+function getOrchestrator(): CoreOrchestrator {
+  orchestrator ??= createOrchestrator({
+    personaProvider: getPersonaProvider(),
+    brainRunner,
+    fallbackRunner: qwenFallbackRunner, // M5-02：Hermes 不可用 → 降级纯 Qwen 文本对话
+    defaultPersonaId: readActivePersonaId(config.hermes.personasDir), // 重启后沿用 active.txt
+  });
+  return orchestrator;
+}
 
 /**
  * Hermes 冷启动预热（启动即调用，避免用户首次对话等待）。
@@ -45,15 +64,18 @@ const orchestrator = createOrchestrator({
  *   复用系统级缓存（模块加载/依赖导入），显著缩短首次对话等待。
  * 设计：
  *   - 异步 fire-and-forget：不阻塞服务启动与 listen 回调
- *   - 走 brainRunner.run（复用 --profile cyber-girlfriend + -t 白名单，记忆隔离红线 10）
+ *   - L4：走完整链路（persona instructions + brain），预热效果等同真实请求
  *   - 轻量指令（无副作用），失败静默（Hermes 不可用时自动走 qwen-fallback，不影响服务）
  */
 async function prewarmHermes(): Promise<void> {
   const started = Date.now();
   console.log('[app] Hermes 冷启动预热中…（首次对话免等待）');
   try {
+    // L4：先取人设 instructions（完整链路预热），再跑 brain
+    const instructions = await resolveInstructions();
     const r = await brainRunner.run({
       instruction: '你好，这是一次启动预热测试，无需执行任何操作，回复"预热完成"即可。',
+      context: instructions,
       timeoutMs: 90_000, // 预热给足时间（冷启动 12~23s，留裕量）
     });
     if (r.ok) {
@@ -69,8 +91,8 @@ async function prewarmHermes(): Promise<void> {
 
 /** 解析当前活跃人设的 Qwen instructions（WS 连接建立时调用，契约 §2.4） */
 async function resolveInstructions(): Promise<string> {
-  const persona = await personaProvider.getPersona(orchestrator.getActivePersonaId());
-  return personaProvider.buildInstructions(persona);
+  const persona = await getPersonaProvider().getPersona(getOrchestrator().getActivePersonaId());
+  return getPersonaProvider().buildInstructions(persona);
 }
 
 export function createApp(): Express {
@@ -80,7 +102,7 @@ export function createApp(): Express {
   app.use(express.json());
 
   // REST API（/api 前缀）
-  app.use('/api', createApiRouter(config, orchestrator));
+  app.use('/api', createApiRouter(config, getOrchestrator()));
 
   // SSE 骨架：/api/events 事件通道（AP-02 Orchestrator 后续在此推送状态/字幕/情绪）
   setupSse(app);
@@ -111,15 +133,20 @@ function setupSse(app: Express): void {
   });
 }
 
-export const app = createApp();
+// L3：不直接导出单例 app（避免 import 时构建触发文件 IO）；提供 getApp() 按需构建
+export function getApp(): Express {
+  return createApp();
+}
 
-// 仅直接运行时启动（集成测试 import app 时不占端口）
+// L1：仅直接运行时启动（集成测试 import 不占端口）——
+// 用 import.meta.url 与 process.argv[1] 比对（原 endsWith('index.ts') 脆弱：
+// 若其他目录也有 index.ts 会被误判）
 const isDirectRun =
-  process.argv[1] &&
-  (process.argv[1].endsWith('index.ts') || process.argv[1].endsWith('index.js'));
+  process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isDirectRun) {
   const { port, host } = config.server;
+  const app = getApp();
 
   // AP-05：HTTP 与 WS 共享同一端口（http server 承载 Express 与 /ws/voice 升级）
   const server = createServer(app);
@@ -128,15 +155,19 @@ if (isDirectRun) {
     resolveInstructions,
   });
 
-  // 优雅关闭：先断 WS 客户端（gateway 清理 Qwen 会话）→ 再关 HTTP → 退出；4s 兜底强退
+  // M3：关闭防重入——SIGINT+SIGTERM 快速连续触发时只执行一次优雅关闭
+  let shuttingDown = false;
   const shutdown = (): void => {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log('[app] 收到关闭信号，正在优雅关闭…');
     voiceWs
       .close()
       .catch(() => undefined)
       .finally(() => {
         server.close(() => process.exit(0));
-        setTimeout(() => process.exit(0), 4_000).unref?.();
+        // L2：Node 22 的 Timeout 必有 unref，去掉多余可选链
+        setTimeout(() => process.exit(0), 4_000).unref();
       });
   };
   process.on('SIGINT', shutdown);
@@ -154,4 +185,4 @@ if (isDirectRun) {
   });
 }
 
-export default app;
+export default getApp;

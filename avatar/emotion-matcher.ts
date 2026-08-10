@@ -52,13 +52,21 @@ export interface EmotionMatcher {
  *           选中后自动记入窗口队列；窗口满则挤出最旧（滑动窗口）。
  */
 export function createEmotionMatcher(options: EmotionMatcherOptions): EmotionMatcher {
-  const windowSize = Math.max(1, options.recentlyPlayedWindow ?? 5);
+  // M14：windowSize 校验——NaN/Infinity 会破坏窗口滑动（Math.max(1, NaN)=NaN → length > NaN
+  // 永远 false → 窗口无限增长=内存泄漏）；非法值兜底默认 5，合法值夹在 [1, 100]
+  const raw = options.recentlyPlayedWindow;
+  const windowSize = Number.isFinite(raw)
+    ? Math.max(1, Math.min(Math.floor(raw as number), 100))
+    : 5;
   const matcher = options.matcher ?? createClipMatcher(options.library);
 
   let recentlyPlayed: string[] = [];
 
-  /** 记入窗口队列（窗口滑动：超限挤出最旧） */
+  /** 记入窗口队列（窗口滑动：超限挤出最旧）
+   *  L19：去重——pick() 已自动记录，外部播放完成回调再 markPlayed 同一 id 时
+   *  不再重复入队（重复记录会让"避让窗口"被同一片段填满，轮换退化） */
   function remember(clipId: string): void {
+    if (recentlyPlayed.includes(clipId)) return;
     recentlyPlayed.push(clipId);
     if (recentlyPlayed.length > windowSize) {
       recentlyPlayed = recentlyPlayed.slice(recentlyPlayed.length - windowSize);

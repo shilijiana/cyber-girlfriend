@@ -115,11 +115,13 @@ class VoiceGatewayImpl implements VoiceGateway {
     let closed = false;
     let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-    /** 向浏览器发送 JSON（连接已关闭时静默丢弃） */
+    /** 向浏览器发送 JSON（连接已关闭时静默丢弃）
+     *  H8 修复：必须发文本帧（opcode 0x01）而非二进制帧——浏览器 onmessage
+     *  对文本帧直接给 string，二进制帧则给 Blob/ArrayBuffer 需额外转换，易解析异常 */
     const sendToBrowser = (obj: unknown): void => {
       if (closed || browserWs.readyState !== WS_OPEN) return;
       try {
-        browserWs.send(Buffer.from(JSON.stringify(obj)));
+        browserWs.send(JSON.stringify(obj));
       } catch (e) {
         log('warn', '向浏览器发送失败', { error: String(e) });
       }
@@ -210,24 +212,23 @@ class VoiceGatewayImpl implements VoiceGateway {
           setState('connected');
         }
       },
+      // M17：用户语音转写（VS-05）走 dispatcher 统一分发（错误隔离）
+      onInputTranscript: (text, info) => {
+        sendToBrowser({ type: 'user_transcript', text, delta: info.delta });
+      },
     };
     dispatcher.subscribe(browserConsumer);
 
-    // 路②deps 消费者：副文本/情绪/function_call → 上层（function_call 只透传，红线 6）
+    // 路②deps 消费者：副文本/情绪/function_call/用户转写 → 上层（function_call 只透传，红线 6）
     const depsConsumer: VoiceConsumer = {
       onSubtitle: (text) => this.deps.onSubtitle?.(text),
       onEmotion: (e) => this.deps.onEmotion?.(e),
       onFunctionCall: (call) => this.deps.onFunctionCall?.(call),
+      onInputTranscript: (text, info) => this.deps.onInputTranscript?.(text, info),
     };
     dispatcher.subscribe(depsConsumer);
 
-    // 用户语音转写（VS-05）：→ 浏览器 user_transcript + deps 透传（供编排层/字幕消费）
-    session.onInputTranscript((text, info) => {
-      sendToBrowser({ type: 'user_transcript', text, delta: info.delta });
-      this.deps.onInputTranscript?.(text, info);
-    });
-
-    // 绑定会话事件源 → dispatcher 开始广播（audio/subtitle/emotion/functionCall 四路）
+    // 绑定会话事件源 → dispatcher 开始广播（audio/subtitle/emotion/functionCall/inputTranscript 五路）
     dispatcher.bind(session);
 
     // ------------------------------------------------------------ 浏览器上行 → Qwen

@@ -15,8 +15,9 @@
  */
 import { Router } from 'express';
 import { spawn } from 'child_process';
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readFile } from 'fs/promises';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import type { AppConfig } from '../../config/loader.ts';
 import type { CoreOrchestrator, ChatRequest } from './orchestrator.ts';
 
@@ -34,6 +35,31 @@ export interface AvatarStatus {
 
 const PROBE_TIMEOUT_MS = 5_000; // Hermes 探测超时（--version 应毫秒级返回）
 const MAX_PROBE_BYTES = 4_096;  // 版本输出上限，防异常刷屏
+/** L5：文本聊天消息长度上限（防超长输入耗尽 Hermes/Qwen 资源） */
+const MAX_MESSAGE_LENGTH = 2_000;
+/** L5：/api/chat 简易限流——固定窗口 60s 内每 IP 最多 30 次（内存计数，无新增依赖） */
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 30;
+/** 限流窗口计数表（key: ip，value: {count, resetAt}） */
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+/** L6：版本输出取第一行（--version 可能多行，只取有意义的第一行并截断） */
+function firstLine(s: string, maxLen = 200): string {
+  const line = s.split(/\r?\n/)[0]?.trim() ?? '';
+  return line.slice(0, maxLen);
+}
+
+/** L5：简易限流判定（固定窗口；超限返回 false） */
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(ip);
+  if (!bucket || bucket.resetAt <= now) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > RATE_LIMIT_MAX;
+}
 
 /**
  * 探测 Hermes 可用性：spawn `binPath --version`，短超时。
@@ -64,7 +90,8 @@ export function probeHermes(binPath: string, timeoutMs = PROBE_TIMEOUT_MS): Prom
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      const version = out.trim();
+      // L6：多行输出只取第一行（避免整段原始输出进 status 字段）
+      const version = firstLine(out);
       resolveProbe({ available: code === 0 && version.length > 0, version });
     });
 
@@ -77,20 +104,24 @@ export function probeHermes(binPath: string, timeoutMs = PROBE_TIMEOUT_MS): Prom
   });
 }
 
+// M15：路径基于模块位置推导项目根（与 config/loader 同款，不依赖 cwd）
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url)); // <root>/app/server
+const PROJECT_ROOT = resolve(MODULE_DIR, '..', '..');
+
 /**
  * 读取数字人素材状态：加载素材清单 manifest.json（约定路径 config.avatar.assetsPath/manifest.json，
  * 结构与 ClipLibrary 一致 {clips: Clip[]}；AV-02 定稿后以该任务为准）。
  * manifest 缺失 / 解析失败 → clipCount 0（前端据此降级），engine 固定当前方案 'clip'。
+ * M15：fs/promises 异步读取，不再阻塞事件循环（该接口可能被前端轮询）。
  */
-export function loadAvatarStatus(config: AppConfig): AvatarStatus {
-  const manifestPath = resolve(process.cwd(), config.avatar.assetsPath, 'manifest.json');
+export async function loadAvatarStatus(config: AppConfig): Promise<AvatarStatus> {
+  const manifestPath = resolve(PROJECT_ROOT, config.avatar.assetsPath, 'manifest.json');
   try {
-    if (existsSync(manifestPath)) {
-      const lib = JSON.parse(readFileSync(manifestPath, 'utf-8')) as { clips?: unknown[] };
-      return { engine: 'clip', clipCount: Array.isArray(lib.clips) ? lib.clips.length : 0 };
-    }
+    const raw = await readFile(manifestPath, 'utf-8');
+    const lib = JSON.parse(raw) as { clips?: unknown[] };
+    return { engine: 'clip', clipCount: Array.isArray(lib.clips) ? lib.clips.length : 0 };
   } catch {
-    // manifest 损坏按无素材处理，不阻塞接口（降级路径由前端负责）
+    // manifest 缺失/损坏按无素材处理，不阻塞接口（降级路径由前端负责）
   }
   return { engine: 'clip', clipCount: 0 };
 }
@@ -138,9 +169,20 @@ export function createApiRouter(config: AppConfig, orchestrator: CoreOrchestrato
 
   // POST /api/chat —— 文本聊天（调试/降级，契约 §2.1 → §2.7 Core Orchestrator 完整链路）
   router.post('/chat', async (req, res) => {
+    // L5：简易限流（防耗尽 Hermes/Qwen 资源）
+    const ip = req.ip ?? 'unknown';
+    if (isRateLimited(ip)) {
+      res.status(429).json({ error: '请求过于频繁，请稍后再试' });
+      return;
+    }
     const message = parseMessage(req.body);
     if (!message) {
       res.status(400).json({ error: 'message 必填（非空字符串）' });
+      return;
+    }
+    // L5：消息长度上限
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      res.status(400).json({ error: `message 过长（上限 ${MAX_MESSAGE_LENGTH} 字符）` });
       return;
     }
 
@@ -162,9 +204,10 @@ export function createApiRouter(config: AppConfig, orchestrator: CoreOrchestrato
         ...(result.degraded !== undefined ? { degraded: result.degraded } : {}),
       });
     } catch (err) {
-      // 编排层异常（如 persona 不存在）→ 契约 §3.3 转 4xx/5xx
+      // 编排层异常 → 契约 §3.3 转 4xx/5xx。
+      // M1：状态码由错误携带的 statusCode 决定（PersonaNotFoundError=400），不再字符串匹配
       const msg = err instanceof Error ? err.message : '聊天编排失败';
-      const status = msg.includes('人设不存在') ? 400 : 500;
+      const status = (err as { statusCode?: number }).statusCode ?? 500;
       res.status(status).json({ error: msg });
     }
   });
@@ -174,9 +217,9 @@ export function createApiRouter(config: AppConfig, orchestrator: CoreOrchestrato
     res.json(await probeHermes(config.hermes.binPath));
   });
 
-  // GET /api/avatar/status —— 数字人引擎状态（契约 §2.1）
-  router.get('/avatar/status', (_req, res) => {
-    res.json(loadAvatarStatus(config));
+  // GET /api/avatar/status —— 数字人引擎状态（契约 §2.1；M15 异步读取）
+  router.get('/avatar/status', async (_req, res) => {
+    res.json(await loadAvatarStatus(config));
   });
 
   return router;

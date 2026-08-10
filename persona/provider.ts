@@ -5,11 +5,28 @@
  * 赛博女友侧不存角色卡、不做持久化，只保留接口、类型与切换方式。
  *
  * 契约对齐：docs/architecture/module-contracts.md §2.4（v1.2）
- * 实现规划：HermesPersonaProvider（PS-02，通过 `hermes -z` 子进程获取）
- * 预留实现：FilePersonaProvider（读 Hermes 写的人设 JSON）、HttpPersonaProvider（MCP serve 常驻）
+ * 实现规划：FilePersonaProvider（PS-03 定稿，读 Hermes 写的人设文件，已交付）
+ * 预留实现：HttpPersonaProvider（MCP serve 常驻）
  *
- * 模块边界：纯类型定义 + 类型守卫，零运行时依赖（ADR-007）。
+ * 模块边界：纯类型定义 + 类型守卫 + 共享常量，零第三方运行时依赖（ADR-007）。
  */
+
+/** 默认活跃人设 id（L7：共享常量，orchestrator 与 file-persona-provider 统一引用，防重复定义漂移） */
+export const DEFAULT_PERSONA_ID = 'xiaodai';
+
+/**
+ * M1：人设类业务错误——携带 HTTP 状态码（400），REST 层据 statusCode 转码，
+ * 不再依赖错误消息字符串匹配（审查 CC-01 M1：消息措辞变更即失效）。
+ * 其他运行期错误（注册表损坏/角色卡缺失等）保持普通 Error → REST 层转 500。
+ */
+export class PersonaNotFoundError extends Error {
+  /** 固定 400：人设不存在属客户端请求错误 */
+  readonly statusCode = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = 'PersonaNotFoundError';
+  }
+}
 
 /** 人设摘要信息（列表展示用，不携带完整 instructions） */
 export interface PersonaInfo {
@@ -48,15 +65,18 @@ export interface PersonaProvider {
 }
 
 /**
- * 类型守卫：校验对象是否为 PersonaInfo（供 PS-02 解析 Hermes 返回 JSON 使用）
+ * 类型守卫：校验对象是否为 PersonaInfo（供解析 Hermes 返回 JSON 使用）
  * 只校验必要字段，宽容可选字段。
+ * L17：id/name/description 追加非空校验（空字符串字段无展示意义，应视为非法）
  */
 export function isPersonaInfo(v: unknown): v is PersonaInfo {
   if (typeof v !== 'object' || v === null) return false;
   const o = v as Record<string, unknown>;
   return (
     typeof o.id === 'string' &&
+    o.id.length > 0 &&
     typeof o.name === 'string' &&
+    o.name.length > 0 &&
     typeof o.description === 'string'
   );
 }

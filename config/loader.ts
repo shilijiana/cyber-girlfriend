@@ -9,7 +9,28 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { homedir } from 'os';
+
+// M4：配置文件路径基于项目根目录推导（import.meta.url），不再依赖 process.cwd() 启动目录——
+// 从任意子目录启动都能找到 config/apikeys.json 与 .env（审查 CC-01 M4）
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url)); // <root>/config
+const PROJECT_ROOT = resolve(MODULE_DIR, '..'); // 项目根目录
+
+const CONFIG_PATH = resolve(PROJECT_ROOT, 'config', 'apikeys.json');
+const DOTENV_PATHS = ['.env', '.env.local'].map((f) => resolve(PROJECT_ROOT, f));
+
+// M5：personas 目录默认值不再硬编码 Windows 用户路径，用 os.homedir() 动态构建（跨平台）
+const DEFAULT_PERSONAS_DIR = resolve(
+  homedir(),
+  'AppData',
+  'Local',
+  'hermes',
+  'profiles',
+  'cyber-girlfriend',
+  'personas',
+);
 
 export interface AppConfig {
   dashscope: {
@@ -38,9 +59,6 @@ export interface AppConfig {
     assetsPath: string;
   };
 }
-
-const CONFIG_PATH = resolve(process.cwd(), 'config', 'apikeys.json');
-const DOTENV_PATHS = ['.env', '.env.local'].map((f) => resolve(process.cwd(), f));
 
 /**
  * 解析 .env 文本（轻量实现，覆盖常用语法）
@@ -99,34 +117,34 @@ export function loadConfig(): AppConfig {
 }
 
 function mergeWithEnv(file: Partial<AppConfig>): AppConfig {
+  // H2：全部 `||` 改 `??`（仅对 null/undefined 回退，不吞掉 "" / 0 / false 等显式 falsy 值）——
+  // 用户显式置空 baseUrl 等字段以禁用自定义端点时，`||` 会错误回退到默认值
   return {
     dashscope: {
-      apiKey: file.dashscope?.apiKey || process.env.DASHSCOPE_API_KEY || '',
-      workspaceId: file.dashscope?.workspaceId || process.env.DASHSCOPE_WORKSPACE_ID || '',
-      region: file.dashscope?.region || process.env.DASHSCOPE_REGION || 'cn-beijing',
+      apiKey: file.dashscope?.apiKey ?? process.env.DASHSCOPE_API_KEY ?? '',
+      workspaceId: file.dashscope?.workspaceId ?? process.env.DASHSCOPE_WORKSPACE_ID ?? '',
+      region: file.dashscope?.region ?? process.env.DASHSCOPE_REGION ?? 'cn-beijing',
       model:
-        file.dashscope?.model ||
-        process.env.DASHSCOPE_MODEL ||
+        file.dashscope?.model ??
+        process.env.DASHSCOPE_MODEL ??
         'qwen-audio-3.0-realtime-flash',
     },
     hermes: {
-      binPath: file.hermes?.binPath || process.env.HERMES_BIN || 'hermes',
-      modelProvider: file.hermes?.modelProvider || process.env.HERMES_MODEL_PROVIDER || 'deepseek',
-      apiKey: file.hermes?.apiKey || process.env.HERMES_API_KEY || '',
-      baseUrl: file.hermes?.baseUrl || process.env.HERMES_BASE_URL || '',
-      profile: file.hermes?.profile || process.env.HERMES_PROFILE || 'cyber-girlfriend',
-      personasDir:
-        file.hermes?.personasDir ||
-        process.env.HERMES_PERSONAS_DIR ||
-        'C:/Users/chipsine/AppData/Local/hermes/profiles/cyber-girlfriend/personas',
-      toolsets: file.hermes?.toolsets || process.env.HERMES_TOOLSETS || 'terminal,file,web',
+      binPath: file.hermes?.binPath ?? process.env.HERMES_BIN ?? 'hermes',
+      modelProvider: file.hermes?.modelProvider ?? process.env.HERMES_MODEL_PROVIDER ?? 'deepseek',
+      apiKey: file.hermes?.apiKey ?? process.env.HERMES_API_KEY ?? '',
+      baseUrl: file.hermes?.baseUrl ?? process.env.HERMES_BASE_URL ?? '',
+      profile: file.hermes?.profile ?? process.env.HERMES_PROFILE ?? 'cyber-girlfriend',
+      personasDir: file.hermes?.personasDir ?? process.env.HERMES_PERSONAS_DIR ?? DEFAULT_PERSONAS_DIR,
+      toolsets: file.hermes?.toolsets ?? process.env.HERMES_TOOLSETS ?? 'terminal,file,web',
     },
     server: {
+      // port 保留 `||`：Number(env) 可能解析为 NaN（falsy），需要回退默认 3000
       port: file.server?.port || Number(process.env.PORT) || 3000,
-      host: file.server?.host || process.env.HOST || 'localhost',
+      host: file.server?.host ?? process.env.HOST ?? 'localhost',
     },
     avatar: {
-      assetsPath: file.avatar?.assetsPath || 'assets/avatars',
+      assetsPath: file.avatar?.assetsPath ?? 'assets/avatars',
     },
   };
 }

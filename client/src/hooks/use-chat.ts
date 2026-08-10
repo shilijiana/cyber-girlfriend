@@ -22,7 +22,7 @@
  *   零第三方依赖（原生 fetch，无 uuid / axios）。
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   addPending,
   addUserMessage,
@@ -82,10 +82,18 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     });
   }, []);
 
+  // L21：AbortController 引用——组件卸载或发送新消息时 abort 上一个进行中的请求
+  const abortRef = useRef<AbortController | null>(null);
+
   const sendMessage = useCallback(async (text?: string): Promise<void> => {
     if (busyRef.current) return;
     const content = (text ?? inputValue).trim();
     if (content.length === 0) return;
+
+    // L21：新发送时中止上一个进行中的请求（防旧响应覆盖新消息的 pending 占位）
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     busyRef.current = true;
     setIsLoading(true);
@@ -103,6 +111,7 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
       text: content,
       personaId: optsRef.current.personaId,
       apiUrl: optsRef.current.url ?? '/api/chat',
+      signal: controller.signal, // L21：传 AbortSignal（卸载/新发送时取消）
     });
 
     // ③ 填充 pending：ok=true → 正常回复；ok=false → 错误文案（error 样式）
@@ -122,6 +131,11 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     commitMessages(() => []);
     setError(null);
   }, [commitMessages]);
+
+  // L21：组件卸载时中止进行中的请求（防已卸载组件上 setState）
+  useEffect(() => {
+    return () => abortRef.current?.abort();
+  }, []);
 
   return {
     messages,

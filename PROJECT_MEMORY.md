@@ -46,14 +46,13 @@
 │       ├── orchestrator.ts  # Core Orchestrator 编排层（persona→brain）
 │       ├── ws-test.ts       # AP-05 自检（mock，9/9）
 │       ├── ws-smoke-test.ts # AP-05 端到端冒烟（真实 Qwen，6/6）
-│       └── default-persona-provider.ts  # 占位人设（已由 FilePersonaProvider 替代注入）
 ├── brain/                   # Hermes 大脑（BR-01~05 ✅）
-│   ├── hermes-runner.ts     # hermes -z 子进程调用（120s 超时、错误兜底）
+│   ├── hermes-runner.ts     # hermes -z 子进程调用（120s 超时、错误兜底、串行队列）
 │   ├── function-router.ts   # Function Calling 中转（BR-02）：拦截 function_call → 调 runner → 写回
 │   └── hermes-runner-spec.md
-├── persona/                 # 人设接口（PS-01/02 ✅）
-│   ├── provider.ts          # PersonaProvider 抽象 + 类型守卫
-│   └── hermes-persona-provider.ts  # HermesPersonaProvider（hermes -z 获取）
+├── persona/                 # 人设接口（PS-01/03 ✅）
+│   ├── provider.ts          # PersonaProvider 抽象 + 类型守卫 + DEFAULT_PERSONA_ID 共享常量 + PersonaNotFoundError
+│   └── file-persona-provider.ts  # FilePersonaProvider（fs 直读 personas/，PS-03 定稿）
 ├── avatar/                  # 数字人素材匹配（AV-01 ✅）
 │   └── clip-matcher.ts      # 情绪→选片→队列，纯函数零依赖
 ├── client/                  # React 前端（CL-01~09 ✅ 全齐）
@@ -98,6 +97,7 @@
 
 7. **架构变更评估（2026-08-09）**：老板认为 CodeBuddy Agent SDK 太重，要求评估 **SillyTavern 式轻量核心对话+角色卡 + Hermes agent 工作执行** 方案。调研结论：**技术上完全可行**（详见 DESIGN §17）。待老板确认方向后，M1 范围将大幅调整：去掉 @tencent-ai/agent-sdk + better-sqlite3，改为自研 Chat Core + node:sqlite + Hermes runner。
 8. **测试框架与 CI 暂停（2026-08-09）**：老板指示测试框架（Vitest/Playwright）和 CI 配置（GitHub Actions）暂时搁置，等新架构落地后再重新搭建。
+9. **CC-01 代码审查整改（2026-08-11，47/48 清零）**：48 问题中完成 47 个——H1~H9 全部（请求超时 60s / config `??` 语义 / WS maxConnections+Origin / runner try-catch / 输出独立计数 / 路径 sanitize / 删死代码 2 处 / WS 文本帧 / 前端 connectingRef）；M1~M18 全部（PersonaNotFoundError 状态码 / 串行队列 / shutdown 防重入 / import.meta.url / os.homedir / taskkill / 截断标记 / 异步 IO / dispatcher 分发等）；L1~L21 完成 20 项，**L11 遗留**（resolveInstructions 丢音频需协议级 initializing 状态）。契约已同步 `listPersonas()`；整改文档 `docs/reviews/CC-01-02_整改文档.md`。
 
 ## 新需求（2026-08-09 老板提出，调研中）
 

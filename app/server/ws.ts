@@ -18,7 +18,7 @@
  *   - 密钥走 config（红线 3）：由 voice-shell 内部处理，本文件不碰密钥
  */
 
-import type { Server } from 'http';
+import type { Server, IncomingMessage } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import type { VoiceProvider } from '../../voice-shell/provider.ts';
 import { createQwenAudioClient } from '../../voice-shell/qwen-audio-client.ts';
@@ -33,6 +33,11 @@ import { createFunctionCallingLayer } from '../../voice-shell/function-calling.t
 export const VOICE_WS_PATH = '/ws/voice';
 /** 服务器关闭兜底：wss.close 等待客户端断开的上限（防残留连接挂死） */
 const CLOSE_GRACE_MS = 3_000;
+/** H3：WS 最大并发连接数（防资源耗尽；单用户场景 10 连接足够，可经 deps 覆盖） */
+const DEFAULT_MAX_CONNECTIONS = 10;
+/** H3：允许的 Origin（浏览器跨站劫持防护）——仅放行 localhost/127.0.0.1 任意端口；
+ *  无 Origin 的连接（Node 客户端/同源非浏览器工具）放行，与现有测试兼容 */
+const ALLOWED_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
 /** WS 挂载依赖（构造注入，全部为抽象接口） */
 export interface VoiceWsDeps {
@@ -42,6 +47,8 @@ export interface VoiceWsDeps {
   resolveInstructions: () => Promise<string>;
   /** 语音供应商（默认 Qwen-Audio + hermes_brain 工具注册；测试注入 mock） */
   provider?: VoiceProvider;
+  /** H3：最大并发连接数（默认 10；超限拒绝新连接） */
+  maxConnections?: number;
   /** 日志回调（默认 console） */
   log?: (level: 'debug' | 'info' | 'warn' | 'error', msg: string, meta?: unknown) => void;
 }
@@ -91,9 +98,35 @@ export function setupVoiceWebSocket(deps: VoiceWsDeps): VoiceWsHandle {
 
   // 挂载：ws 库 attach 模式自动监听 upgrade，path 不匹配的请求不拦截（留给其他 handler）
   const wss = new WebSocketServer({ server: deps.server, path: VOICE_WS_PATH });
+  const maxConnections = deps.maxConnections ?? DEFAULT_MAX_CONNECTIONS;
 
-  wss.on('connection', (ws: WebSocket) => {
-    void handleBrowserConnection(ws, deps.resolveInstructions, gateway, log);
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    // H3 ① Origin 校验：浏览器跨站 WebSocket 劫持防护——带 Origin 的请求必须来自
+    //   localhost/127.0.0.1（任意端口）；无 Origin（Node 客户端/测试/同源工具）放行
+    const origin = req.headers.origin;
+    if (origin && !ALLOWED_ORIGIN_PATTERN.test(origin)) {
+      log('warn', '拒绝跨源 WS 连接（Origin 不在白名单）', { origin });
+      try {
+        ws.close(1008, 'origin not allowed');
+      } catch {
+        // 连接已断开，忽略
+      }
+      return;
+    }
+    // H3 ② 连接数限制：超过上限拒绝新连接（防资源耗尽 / API 配额滥用）
+    if (wss.clients.size > maxConnections) {
+      log('warn', 'WS 连接数超限，拒绝新连接', { count: wss.clients.size, max: maxConnections });
+      try {
+        ws.close(1013, 'too many connections');
+      } catch {
+        // 连接已断开，忽略
+      }
+      return;
+    }
+    // L10：显式 .catch 兜底（handleBrowserConnection 内部已 try/catch，此处仅防未来实现变化）
+    void handleBrowserConnection(ws, deps.resolveInstructions, gateway, log).catch((e) => {
+      log('error', '浏览器连接处理异常', { error: String(e) });
+    });
   });
 
   // wss 级错误兜底（upgrade 握手异常等），不崩溃整个服务器

@@ -288,14 +288,16 @@ export interface SwitchResult {
 export interface CoreOrchestrator {
   /** 文本聊天主流程：取人设 instructions → brain 执行 → 返回结果 */
   chat(req: ChatRequest): Promise<ChatResult>;
-  /** 切换活跃人设（先校验存在性，仅内存状态，无持久化） */
+  /** 人设列表（PS-03：文件化人设，来自 personas.json 注册表；CC-01 遗留事项 3 补录） */
+  listPersonas(): Promise<PersonaInfo[]>;
+  /** 切换活跃人设（先校验存在性，写 active.txt 持久化，重启保持） */
   switchPersona(id: string): Promise<SwitchResult>;
-  /** 当前活跃人设 id（初始为默认人设） */
+  /** 当前活跃人设 id（初始为 active.txt，切换后同步内存） */
   getActivePersonaId(): string;
 }
 ```
 
-**依赖注入**：`createOrchestrator({ personaProvider, brainRunner })` 只依赖 §2.3 `BrainRunner` 与 §2.4 `PersonaProvider` 抽象接口；PersonaProvider 的具体实现由装配处提供（当前为 app 内嵌 `DefaultPersonaProvider` 占位，PS-02 交付后替换，zero 代码改动）。
+**依赖注入**：`createOrchestrator({ personaProvider, brainRunner })` 只依赖 §2.3 `BrainRunner` 与 §2.4 `PersonaProvider` 抽象接口；PersonaProvider 的具体实现由装配处提供（当前为 `FilePersonaProvider`，PS-03 定稿；原占位 `DefaultPersonaProvider` 已删除）。
 
 **错误处理**：brain 执行失败（超时/不可用）不抛错——降级调用 Qwen 文本对话（`brain/qwen-fallback.ts`，§2.3 同款 `BrainRunner` 接口）：降级成功 → `ChatResult.ok = true` + `degraded = true`，`reply` 为 Qwen 回答；双重失败 → `ok = false`，`reply` 为友好降级提示。由 REST 层转 HTTP 200（业务失败）而非 5xx（契约 §3.3 的上层统一转换）。
 

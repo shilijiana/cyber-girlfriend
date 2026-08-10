@@ -89,6 +89,9 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceResult {
   const micRef = useRef<MicCapture | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
   const closedByUserRef = useRef(false);
+  // H9：连接互斥锁——connect() 是 async，status 是闭包捕获值，快速双击会两次读到
+  //   idle 创建双重 mic/player/ws 资源（第二套覆盖 ref，第一套泄漏）。用 ref 锁防重入。
+  const connectingRef = useRef(false);
 
   const dispatch = useCallback((e: Parameters<typeof voiceMachineReduce>[1]) => {
     setStatus((s) => voiceMachineReduce(s, e));
@@ -176,65 +179,71 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceResult {
   // ------------------------------------------------------------ 连接
   const connect = useCallback(async (): Promise<void> => {
     if (isVoiceActive(status)) return;
-    if (status === 'connecting') return;
+    if (connectingRef.current) return; // H9：防重入（快速双击/并发调用只建一套资源）
+    connectingRef.current = true;
     setError(null);
     dispatch({ type: 'CONNECT' });
 
-    // ① 播放器（每次会话新建，随 disconnect 释放；可选 onEnergy 供波形）
-    const player = createAudioPlayer({ onEnergy: optsRef.current.onEnergy });
-    playerRef.current = player;
-
-    // ② 麦克风授权 + 采集（失败 → error 态，不连 WS）
-    const mic = createMicCapture({
-      onData: (pcm16) => {
-        const ws = wsRef.current;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(pcm16); // 二进制帧 = 上行 PCM16k（gateway 判定）
-        }
-      },
-      onError: (e) => {
-        fail(`麦克风不可用：${e.message}`);
-      },
-    });
-    micRef.current = mic;
     try {
-      await mic.start();
-    } catch {
-      // mic.start 内部已调 onError → fail；此处避免重复报错
-      return;
-    }
+      // ① 播放器（每次会话新建，随 disconnect 释放；可选 onEnergy 供波形）
+      const player = createAudioPlayer({ onEnergy: optsRef.current.onEnergy });
+      playerRef.current = player;
 
-    // ③ 连接 /ws/voice
-    const url = options.url ?? `ws://${location.host}/ws/voice`;
-    closedByUserRef.current = false;
-    let ws: WebSocket;
-    try {
-      ws = new WebSocket(url);
-    } catch (e) {
-      fail(`无法建立语音连接：${String(e)}`);
-      return;
-    }
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      // 连接即就绪（gateway 会自动下发 ready），显式 start 幂等，无需发送
-    };
-    ws.onmessage = handleMessage;
-    ws.onerror = () => {
-      fail('语音连接异常');
-    };
-    ws.onclose = () => {
-      if (wsRef.current !== ws) return; // 已被新会话替换
-      if (!closedByUserRef.current) {
-        // 非用户主动关闭（服务端断开/异常）→ 释放资源
-        dispatch({ type: 'DISCONNECT' });
-        micRef.current?.stop();
-        micRef.current = null;
-        playerRef.current?.close();
-        playerRef.current = null;
-        wsRef.current = null;
+      // ② 麦克风授权 + 采集（失败 → error 态，不连 WS）
+      const mic = createMicCapture({
+        onData: (pcm16) => {
+          const ws = wsRef.current;
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(pcm16); // 二进制帧 = 上行 PCM16k（gateway 判定）
+          }
+        },
+        onError: (e) => {
+          fail(`麦克风不可用：${e.message}`);
+        },
+      });
+      micRef.current = mic;
+      try {
+        await mic.start();
+      } catch {
+        // mic.start 内部已调 onError → fail；此处避免重复报错
+        return;
       }
-    };
+
+      // ③ 连接 /ws/voice（L20：HTTPS 生产环境用 wss://，避免混合内容策略拦截）
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const url = options.url ?? `${protocol}//${location.host}/ws/voice`;
+      closedByUserRef.current = false;
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(url);
+      } catch (e) {
+        fail(`无法建立语音连接：${String(e)}`);
+        return;
+      }
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        // 连接即就绪（gateway 会自动下发 ready），显式 start 幂等，无需发送
+      };
+      ws.onmessage = handleMessage;
+      ws.onerror = () => {
+        fail('语音连接异常');
+      };
+      ws.onclose = () => {
+        if (wsRef.current !== ws) return; // 已被新会话替换
+        if (!closedByUserRef.current) {
+          // 非用户主动关闭（服务端断开/异常）→ 释放资源
+          dispatch({ type: 'DISCONNECT' });
+          micRef.current?.stop();
+          micRef.current = null;
+          playerRef.current?.close();
+          playerRef.current = null;
+          wsRef.current = null;
+        }
+      };
+    } finally {
+      connectingRef.current = false; // H9：释放互斥锁（所有路径统一出口）
+    }
   }, [status, dispatch, fail, handleMessage]);
 
   // ------------------------------------------------------------ 断开

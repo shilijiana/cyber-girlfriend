@@ -81,7 +81,9 @@ export function AvatarCanvas({
     setLoadFailed(false);
   }, [matcher, state, emotion]);
 
-  // 播放控制：clip 变化 → 换 src；listening / playOnState=false → 暂停
+  // M18 修复：加载与播放控制拆成两个 effect——
+  // ① 加载 effect：仅 clip 变化时换 src + load()；state 变化（speaking→listening→speaking）
+  //   不会触发 reload（原实现若耦合，同一视频会从头重播）
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -95,6 +97,12 @@ export function AvatarCanvas({
       video.src = clip.src;
       video.load();
     }
+  }, [clip]);
+
+  // ② 播放控制 effect：state / playOnState 变化仅控制 play/pause（listening 暂停保留当前帧）
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !clip) return;
     if (playOnState && state !== 'listening') {
       void video.play().catch(() => {
         /* 自动播放被浏览器拦截时静默，等待交互后由用户触发 */

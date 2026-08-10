@@ -125,7 +125,9 @@ function normalizeCall(raw: {
 }): FunctionCall | null {
   const name = typeof raw.name === 'string' && raw.name.length > 0 ? raw.name : '';
   const callId = typeof raw.callId === 'string' ? raw.callId : '';
-  if (!name && !callId) return null; // 连名字都没有，无法判断归属，丢弃
+  // M8：name 为空但 callId 非空时也返回 null——无工具名无法判断归属，丢弃
+  // （原实现只拦"两者皆空"，会产生无工具名的调用对象导致下游异常）
+  if (!name) return null;
 
   // arguments：字符串（JSON 文本）或对象，解析失败保留原文兜底
   let args: Record<string, unknown> = {};
@@ -141,7 +143,10 @@ function normalizeCall(raw: {
       // 解析失败：保留原文，由 handle() 兜底为 instruction
     }
   } else if (typeof raw.arguments === 'object' && raw.arguments !== null) {
-    args = raw.arguments as Record<string, unknown>;
+    // L14：数组形态强制当 Record 使用会出错，显式排除
+    if (!Array.isArray(raw.arguments)) {
+      args = raw.arguments as Record<string, unknown>;
+    }
   }
 
   return { callId, name, arguments: args, rawArguments: rawArgs };
@@ -167,9 +172,10 @@ function buildTask(call: FunctionCall): import('./hermes-runner.ts').BrainTask |
     typeof a.context === 'string' && a.context.trim().length > 0
       ? a.context.trim()
       : undefined;
+  // L15：timeoutMs 下限保护（下限 5s——太小会误杀正常 Hermes 调用，且 Math.floor 后可能为 0/负数）
   const timeoutMs =
     typeof a.timeoutMs === 'number' && a.timeoutMs > 0
-      ? Math.min(Math.floor(a.timeoutMs), MAX_TIMEOUT_MS)
+      ? Math.min(Math.max(Math.floor(a.timeoutMs), 5_000), MAX_TIMEOUT_MS)
       : undefined;
 
   return { instruction, context, timeoutMs };
@@ -196,7 +202,15 @@ class HermesFunctionRouter implements FunctionRouter {
     }
 
     // ③ 调 runner（hermes-runner：子进程 + 120s 超时 + 错误兜底）
-    const result = await this.runner.run(task);
+    // 契约 §2.3 BrainRunner 承诺不抛错，但防御性兜底：runner 实现未来可能
+    // 违反契约，此处 try-catch 保证 handle() 永不向外抛（H4，契约 §3.3 错误语义）
+    let result: BrainResult;
+    try {
+      result = await this.runner.run(task);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return this.fail(call.callId, `大脑执行异常：${msg}`);
+    }
 
     // ④ 写回：BrainResult 序列化为 JSON 文本，status 随 ok 标记
     return {

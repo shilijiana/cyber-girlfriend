@@ -5,6 +5,32 @@
 
 ---
 
+## 2026-08-11（CC-01 整改执行完成：47/48 问题清零，全量回归通过）
+
+### 做了什么
+- WorkBuddy 执行《CC-01-02 整改说明文档》，完成 CC-01 代码审查 48 个问题中的 **47 个**：
+  - **P0（4 项）**：H7/M13 删除死代码（`hermes-persona-provider.ts` + `default-persona-provider.ts`，git rm + grep 确认零引用）；H4 function-router `handle()` try-catch；H1 orchestrator `Promise.race` 总超时 60s；H8 gateway 下行改文本帧
+  - **P1（5 项）**：H2 loader `||`→`??`；H3 ws.ts maxConnections=10 + Origin 校验；H5 hermes-runner stdout/stderr 独立计数；H6 file-persona-provider 路径 sanitize + startsWith 校验；H9 useVoice `connectingRef` 防重入
+  - **P2（18 项）**：M1 自定义 `PersonaNotFoundError`(400)；M2 orchestrator 串行队列；M3 shutdown 防重入；M4/M5 import.meta.url + os.homedir()；M6 stderr 正则精确化；M7 Windows taskkill；M8 name 空返回 null；M9 截断标记；M10-M12 异步 IO + parse 包装 + 缺省改注册表第一个；M14 NaN 窗口校验；M15 loadAvatarStatus 异步；M16 reconnectTimer 清理；M17 inputTranscript 并入 dispatcher；M18 AvatarCanvas effect 拆分
+  - **P3（20/21 项）**：L1-L21 完成 20 项；**L11 遗留**（resolveInstructions 丢音频需协议级 initializing 状态，前后端同步改，建议随认证机制一并处理）
+- 契约同步：`module-contracts.md` §2.7 补 `listPersonas()` + 修正 DefaultPersonaProvider 占位描述
+- 整改文档：`docs/reviews/CC-01-02_整改文档.md` 完整填写（48 条逐条留痕）
+
+### 验证结果（全量回归）
+- 根 tsc 零错误 ✅ / client tsc 零错误 ✅
+- 后端 8 文件单测全过（含 qwen-fallback 15/15——截断标记修复预留长度后回归通过）✅
+- 前端 94 项断言全过（13+17+21+13+30）✅；前端 build 成功（49 modules）✅
+
+### 决策
+- L11 记录遗留（协议级修复需前后端同步，不硬改）；认证机制（H3 范围外）列独立任务；CC-02 未执行（反馈文档空白模板，范围外）
+- 环境注意：vite 清空 dist 可能被本机安全删除策略拦截（trash 失败），需先手动清空 dist 再构建
+
+### 阻塞 / 下一步
+- 提交整改代码 + 文档（`fix: CC-01 整改`）
+- 待老板核对整改文档；CC-02 审计可并行派；认证机制 / L11 / M5-01 ACP 常驻为后续任务
+
+---
+
 ## 2026-08-11（CC-01/02 整改子任务文档产出）
 
 ### 做了什么

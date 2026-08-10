@@ -9,7 +9,7 @@
  *   binPath = C:/Users/chipsine/AppData/Local/hermes/hermes-agent/.venv/Scripts/hermes
  *   `hermes -z "1+1=?"` → stdout `2。`，退出码 0。
  */
-import { spawn } from 'child_process';
+import { spawn, type ChildProcess } from 'child_process';
 import { config } from '../config/loader.ts';
 
 /** 任务输入（契约 v1.2） */
@@ -33,17 +33,57 @@ export interface BrainRunner {
 }
 
 const DEFAULT_TIMEOUT_MS = 120_000;
-const MAX_OUTPUT_BYTES = 1024 * 1024; // 1MB 输出上限，防 Hermes 刷屏导致内存溢出
-/** stderr 中出现这些关键词视为 Hermes 内部失败（而非正常结果） */
-const STDERR_ERROR_PATTERN = /error|traceback|exception/i;
+/** L12：超时下限保护（timeoutMs = 0/负数/NaN 时兜底 1s，防子进程立刻被杀） */
+const MIN_TIMEOUT_MS = 1_000;
+/** 输出上限：stdout / stderr 各自独立 1MB（H5：互不挤占，防关键错误信息被大输出淹没） */
+const MAX_OUTPUT_BYTES = 1024 * 1024;
+/** M6：stderr 错误判定正则——精确匹配错误开头（^Error:/^Traceback/unhandled exception），
+ *  避免误判"no error found"等正常日志；m 标志支持多行 stderr 逐行判定 */
+const STDERR_ERROR_PATTERN = /^(?:error:|traceback|unhandled exception)/im;
+/** L13：并发上限——一次最多一个 Hermes 子进程（冷启动 12~23s，并发 spawn 互相拖慢） */
+const MAX_CONCURRENT_RUNS = 1;
+
+/** L13：串行队列——并发调用排队执行，防进程数爆炸 */
+let runQueue: Promise<unknown> = Promise.resolve();
+function runSerial<T>(fn: () => Promise<T>): Promise<T> {
+  const run = runQueue.then(fn);
+  runQueue = run.catch(() => undefined); // 队列吞错，不因单次失败中断后续
+  return run;
+}
+
+/** M7：终止子进程——Windows 下 SIGTERM 不可靠，用 taskkill 强制终止进程树；其他平台 SIGKILL */
+function terminateChild(child: ChildProcess): void {
+  if (process.platform === 'win32' && child.pid) {
+    try {
+      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+        windowsHide: true,
+        stdio: 'ignore',
+      });
+      return;
+    } catch {
+      // taskkill 失败回退 kill()
+    }
+  }
+  try {
+    child.kill('SIGKILL');
+  } catch {
+    // 进程可能已退出，忽略
+  }
+}
 
 /**
  * 执行一次 Hermes 任务（one-shot）。
  * @param task 任务描述；instruction 必填，context 可选（追加为上下文提示），timeoutMs 默认 120s
  */
 export async function runHermes(task: BrainTask): Promise<BrainResult> {
+  // L13：并入串行队列（一次一个子进程）
+  return runSerial(() => doRunHermes(task));
+}
+
+async function doRunHermes(task: BrainTask): Promise<BrainResult> {
   const started = Date.now();
-  const timeoutMs = task.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // L12：超时下限保护（防 0/负数/NaN 传入导致子进程立即被杀）
+  const timeoutMs = Math.max(task.timeoutMs ?? DEFAULT_TIMEOUT_MS, MIN_TIMEOUT_MS);
 
   // 组装命令:hermes --profile <隔离profile> -z "instruction" -t <白名单>
   // (PS-03:专用 profile + 工具集白名单 = 记忆隔离三层中的读/写硬隔离,见 hermes-capabilities-review §3.2)
@@ -66,20 +106,20 @@ export async function runHermes(task: BrainTask): Promise<BrainResult> {
     let stderr = '';
     let settled = false;
 
-    // 输出上限保护：超 1MB 停止累积（防止 Hermes 刷屏）
-    const onData = (buf: Buffer, append: (s: string) => void) => {
-      if (stdout.length + stderr.length < MAX_OUTPUT_BYTES) {
-        append(buf.toString('utf-8'));
-      }
+    // H5：stdout / stderr 独立计数（各 1MB 上限，互不挤占）
+    const appendLimited = (buf: Buffer, target: string, append: (s: string) => void): void => {
+      if (target.length >= MAX_OUTPUT_BYTES) return;
+      const s = buf.toString('utf-8');
+      append(s.slice(0, MAX_OUTPUT_BYTES - target.length));
     };
-    child.stdout.on('data', (d: Buffer) => onData(d, (s) => (stdout += s)));
-    child.stderr.on('data', (d: Buffer) => onData(d, (s) => (stderr += s)));
+    child.stdout.on('data', (d: Buffer) => appendLimited(d, stdout, (s) => (stdout += s)));
+    child.stderr.on('data', (d: Buffer) => appendLimited(d, stderr, (s) => (stderr += s)));
 
-    // 超时兜底：到点杀掉子进程
+    // 超时兜底：到点强制终止子进程（M7：Windows 用 taskkill 杀进程树，防僵尸）
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      child.kill();
+      terminateChild(child);
       resolve({
         ok: false,
         output: stdout.trim(),

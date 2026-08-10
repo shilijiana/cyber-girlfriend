@@ -7,15 +7,17 @@
  *   不 import 任何具体实现（契约 §3.1：只依赖接口，不依赖实现）。
  *
  * 契约对齐：docs/architecture/module-contracts.md §2.7（v1.2）
- * 模块边界：仅 app/server 内部使用；零运行时依赖（type-only imports，ADR-007）；
- *   无持久化、无本地记忆（红线 1），活跃人设仅存内存（重启即回默认）。
+ * 模块边界：仅 app/server 内部使用；运行时仅依赖 persona/provider.ts 的共享常量
+ *   （ADR-007：零第三方运行时依赖）；无持久化、无本地记忆（红线 1），
+ *   活跃人设仅存内存（重启即回默认）。
  *
  * 错误语义（契约 §3.3）：
  *   - persona 获取/注入失败 → 向上抛错，由 REST 层转 4xx/5xx
  *   - brain 执行失败（超时/不可用）→ 不抛错，返回 ok:false + 友好降级提示（HTTP 200）
+ *   - 请求级总超时（H1）→ 不抛错，返回 ok:false + 超时友好提示（HTTP 200）
  */
 
-import type { PersonaProvider, PersonaInfo } from '../../persona/provider.ts';
+import { DEFAULT_PERSONA_ID, type PersonaProvider, type PersonaInfo } from '../../persona/provider.ts';
 import type { BrainRunner, BrainResult } from '../../brain/hermes-runner.ts';
 
 /** 文本聊天请求（契约 §2.7） */
@@ -53,8 +55,13 @@ export interface CoreOrchestrator {
   getActivePersonaId(): string;
 }
 
-/** 默认活跃人设 id（与 app 内嵌占位人设一致，PS-02 交付后可改） */
-export const DEFAULT_PERSONA_ID = 'xiaodai';
+/** 默认活跃人设 id（L7：与 file-persona-provider 统一引用 persona/provider.ts 共享常量） */
+export { DEFAULT_PERSONA_ID };
+
+/** 文本聊天总超时（H1：请求级超时保护，防止 persona 文件 IO / brain 卡死导致请求永久挂起） */
+const CHAT_TIMEOUT_MS = 60_000;
+/** 单次 brain 执行超时（L8：文本聊天比事务执行快，默认 120s 过长；留总超时余量） */
+const BRAIN_TIMEOUT_MS = 45_000;
 
 /** 编排层依赖（构造注入，全部为抽象接口） */
 export interface OrchestratorDeps {
@@ -80,19 +87,51 @@ class CoreOrchestratorImpl implements CoreOrchestrator {
     this.activePersonaId = deps.defaultPersonaId ?? DEFAULT_PERSONA_ID;
   }
 
+  /** 并发保护（M2）：串行队列——一次只放行一个 chat，避免多个并发请求
+   *  同时 spawn Hermes 子进程抢资源（冷启动 12~23s，并发 spawn 会互相拖慢） */
+  private chatQueue: Promise<unknown> = Promise.resolve();
+
   async chat(req: ChatRequest): Promise<ChatResult> {
     const started = Date.now();
     const personaId = req.personaId ?? this.activePersonaId;
 
+    // M2：并入串行队列（前一个 chat 完成后再执行本次；队列吞错，不因单次失败中断后续）
+    const run = this.chatQueue.then(() => this.doChat(req, personaId, started));
+    this.chatQueue = run.catch(() => undefined);
+
+    // H1：请求级总超时——Promise.race 保证任何环节卡死（persona IO / brain 异常）都不会永久挂起。
+    // 超时结果走 HTTP 200 + ok:false（契约 §3.3：brain 业务失败不抛错）
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeoutResult = new Promise<ChatResult>((resolve) => {
+      timer = setTimeout(() => {
+        resolve({
+          reply: '（大脑思考超时了，稍后再试试？）',
+          personaId,
+          ok: false,
+          durationMs: Date.now() - started,
+        });
+      }, CHAT_TIMEOUT_MS);
+    });
+
+    try {
+      return await Promise.race([run, timeoutResult]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  }
+
+  /** chat 内部实现（不含超时/并发保护，由 chat() 统一包裹） */
+  private async doChat(req: ChatRequest, personaId: string, started: number): Promise<ChatResult> {
     // ① 取人设（含 Hermes 预组装的 instructions）——失败向上抛，由 REST 层转 4xx/5xx
     const persona = await this.personaProvider.getPersona(personaId);
     // ② 人设 → instructions 文本（PersonaProvider 内部透传/格式化）
     const instructions = this.personaProvider.buildInstructions(persona);
 
-    // ③ brain 执行：用户消息为任务，人设 instructions 作为上下文
+    // ③ brain 执行：用户消息为任务，人设 instructions 作为上下文（L8：显式传文本聊天超时）
     const result = await this.brainRunner.run({
       instruction: req.message,
       context: instructions,
+      timeoutMs: BRAIN_TIMEOUT_MS,
     });
 
     // ④ Hermes 失败 → M5-02 降级：走 Qwen 文本对话（纯 Qwen 回答，保持人设）
@@ -111,8 +150,9 @@ class CoreOrchestratorImpl implements CoreOrchestrator {
           brain: result,
         };
       }
+      // L9：错误细节（fallback.error）不直接拼给用户，保留在 brain 字段供日志/调试
       return {
-        reply: `（大脑开小差了：${fallback.error ?? '未知错误'}，稍后再试试？）`,
+        reply: '（大脑开小差了，稍后再试试？）',
         personaId,
         ok: false,
         durationMs: Date.now() - started,
@@ -120,9 +160,9 @@ class CoreOrchestratorImpl implements CoreOrchestrator {
       };
     }
 
-    // ⑤ 收口：brain 失败且无降级通道 → 友好提示；成功 → 原文
+    // ⑤ 收口：brain 失败且无降级通道 → 友好提示；成功 → 原文（L9：error 细节只进 brain 字段）
     return {
-      reply: result.ok ? result.output : `（大脑开小差了：${result.error ?? '未知错误'}，稍后再试试？）`,
+      reply: result.ok ? result.output : '（大脑开小差了，稍后再试试？）',
       personaId,
       ok: result.ok,
       durationMs: Date.now() - started,

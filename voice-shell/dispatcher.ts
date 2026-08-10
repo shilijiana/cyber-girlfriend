@@ -35,6 +35,9 @@ export interface VoiceConsumer {
   onVadState?(speaking: boolean): void;
   /** function_call → BR-02（只透传不执行） */
   onFunctionCall?(call: FunctionCall): void;
+  /** 用户语音转写（VS-05，M17：统一走 dispatcher 分发，享受错误隔离）：
+   *  delta=true 增量 / false 最终完整转写 */
+  onInputTranscript?(text: string, info: { delta: boolean }): void;
 }
 
 /** 双路分发器：绑定会话事件源，广播到所有已注册消费者（契约 §2.9） */
@@ -83,6 +86,7 @@ class VoiceDispatcherImpl implements VoiceDispatcher {
     session.onEmotion((e) => this.broadcastEmotion(e));
     session.onVadState((speaking) => this.broadcastVadState(speaking));
     session.onFunctionCall((call) => this.broadcastFunctionCall(call));
+    session.onInputTranscript((text, info) => this.broadcastInputTranscript(text, info)); // M17
     this.log('info', '已绑定会话事件源');
   }
 
@@ -117,6 +121,7 @@ class VoiceDispatcherImpl implements VoiceDispatcher {
     s.onEmotion(() => undefined);
     s.onVadState(() => undefined);
     s.onFunctionCall(() => undefined);
+    s.onInputTranscript(() => undefined); // M17
     this.log('debug', '已解绑旧会话事件源');
   }
 
@@ -157,6 +162,14 @@ class VoiceDispatcherImpl implements VoiceDispatcher {
     for (const c of [...this.consumers]) {
       if (!c.onFunctionCall) continue;
       this.safeCall('onFunctionCall', () => c.onFunctionCall!(call));
+    }
+  }
+
+  /** 广播用户语音转写（VS-05，M17：统一走 dispatcher，享受错误隔离） */
+  private broadcastInputTranscript(text: string, info: { delta: boolean }): void {
+    for (const c of [...this.consumers]) {
+      if (!c.onInputTranscript) continue;
+      this.safeCall('onInputTranscript', () => c.onInputTranscript!(text, info));
     }
   }
 

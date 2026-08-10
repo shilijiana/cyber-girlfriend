@@ -68,7 +68,18 @@ export function createClipMatcher(library: ClipLibrary): ClipMatcher {
     let totalMs = 0;
     let guard = 0; // 防死循环护栏
 
-    while (totalMs < targetDurationMs && guard < 100) {
+    // L18：护栏动态计算——所需最大轮数 ≈ 目标时长 / 最短片段时长（+2 余量），
+    //   再夹在 [10, 500] 绝对区间（防 targetDurationMs 异常大/NaN 时死循环）
+    const clips = clipsByEmotion(library, emotion);
+    const minDurationMs =
+      clips.length > 0 ? Math.min(...clips.map((c) => c.durationSec * 1000)) : 1;
+    const maxNeeded =
+      Number.isFinite(targetDurationMs) && targetDurationMs > 0
+        ? Math.ceil(targetDurationMs / minDurationMs) + 2
+        : 0;
+    const guardLimit = Math.max(10, Math.min(maxNeeded, 500));
+
+    while (totalMs < targetDurationMs && guard < guardLimit) {
       const clip = pickClip(emotion, played);
       if (!clip) break; // 无素材 → 返回已有队列（可为空，调用方降级）
       queue.push(clip);

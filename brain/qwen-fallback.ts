@@ -31,6 +31,8 @@ const COMPAT_ENDPOINT = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/
 const DEFAULT_TIMEOUT_MS = 30_000;
 /** 响应内容上限：防异常大回复刷内存 */
 const MAX_OUTPUT_CHARS = 16_384;
+/** L16：输入长度上限（instruction 超长截断，防 Qwen 上下文溢出/浪费 token） */
+const MAX_INPUT_CHARS = 8_000;
 
 /** 降级通道选项（全部可选，测试注入用） */
 export interface QwenFallbackOptions {
@@ -73,6 +75,12 @@ export async function runQwenChat(task: BrainTask, options: QwenFallbackOptions 
     return fail('DashScope API Key 未配置（config/apikeys.json 或 DASHSCOPE_API_KEY）', started);
   }
 
+  // L16：输入长度限制——instruction 超长截断（Qwen 文本模型有上下文上限，防浪费 token）
+  const instruction =
+    task.instruction.length > MAX_INPUT_CHARS
+      ? `${task.instruction.slice(0, MAX_INPUT_CHARS)}…[输入过长已截断]`
+      : task.instruction;
+
   const endpoint = options.endpoint ?? COMPAT_ENDPOINT;
   const model = options.model ?? QWEN_TEXT_MODEL;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -95,7 +103,7 @@ export async function runQwenChat(task: BrainTask, options: QwenFallbackOptions 
         messages: [
           // 人设 instructions 作为 system 提示（保持角色一致性）
           ...(task.context ? [{ role: 'system' as const, content: task.context }] : []),
-          { role: 'user' as const, content: task.instruction },
+          { role: 'user' as const, content: instruction },
         ],
       }),
       signal: controller.signal,
@@ -119,7 +127,13 @@ export async function runQwenChat(task: BrainTask, options: QwenFallbackOptions 
       return fail('Qwen 降级返回空回复', started);
     }
 
-    const truncated = output.length > MAX_OUTPUT_CHARS ? output.slice(0, MAX_OUTPUT_CHARS) : output;
+    // M9：超长输出截断时追加标记，用户/上层可感知"回复被截断"（原实现静默截断）；
+    // 截断位预留标记长度，保证总长不超过 MAX_OUTPUT_CHARS（回归测试断言 <= 16384）
+    const TRUNCATE_MARKER = '…[回复过长已截断]';
+    const truncated =
+      output.length > MAX_OUTPUT_CHARS
+        ? `${output.slice(0, MAX_OUTPUT_CHARS - TRUNCATE_MARKER.length)}${TRUNCATE_MARKER}`
+        : output;
     return {
       ok: true,
       output: truncated,

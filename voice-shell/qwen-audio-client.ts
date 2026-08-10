@@ -167,6 +167,11 @@ class QwenAudioSessionImpl implements VoiceSession {
     } finally {
       if (this.connectTimer) clearTimeout(this.connectTimer);
       this.connectTimer = null;
+      // M16：connect 收尾一并清理 reconnectTimer——超时前若已触发过 scheduleReconnect
+      //（如 openConnection 构造失败/握手 401 分支），reconnectTimer 会残留泄漏，
+      // 此处统一清理，防断线重连定时器悬挂
+      if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
   }
 
