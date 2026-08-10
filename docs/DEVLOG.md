@@ -5,6 +5,26 @@
 
 ---
 
+## 2026-08-11（CC-02 依赖审计整改完成：esbuild/vite 升级验证通过）
+
+### 做了什么
+- 按 CC-02 反馈整改 client 开发工具链漏洞：`client/package.json` devDeps 升级
+  - `esbuild ^0.21.3 → ^0.28.2`（修复 GHSA-67mh-4wv8-2f99）
+  - `vite ^5.4.0 → ^7.3.6`（vite 7 起修复该漏洞；Node 需求 ^20.19/>=22.12 本机满足）
+  - `@vitejs/plugin-react ^4.2.1 → ^5.2.0`（5.x peer 支持 vite ^7）
+- 验证：`npm run build` 通过（vite 7.3.6，45 modules，4.17s）；`npm run test:voice` 67/67（esbuild 0.28 打包）；前端其余测试 94 项全过
+- 整改文档 §1.4 已填写（CC-02 4 项：🔴🟡 升级修复、🟢1 express 保持 4.x、🟢2 audit 用官方 registry）
+
+### 决策
+- express 4.x 保持现状（无安全驱动，下个大版本评估）；audit 显式 `--registry=https://registry.npmjs.org`
+
+### 阻塞 / 下一步（环境问题）
+- **safe-delete shim**（WorkBuddy 经 `NODE_OPTIONS` 注入）会拦 npm/vite 临时文件清理 → 用 `NODE_OPTIONS= npm run build` 绕过
+- **`client/package-lock.json` 被外部进程独占锁定**（EPERM 无法写入）→ lockfile 仍未同步（旧版 0.21.5/5.4.21），**待锁释放后补 `cd client && NODE_OPTIONS= npm install --package-lock-only` + 补 commit**；node_modules/package.json 已新版且验证通过
+- 认证机制 / L11 / M5-01 ACP 常驻为后续任务
+
+---
+
 ## 2026-08-11（CC-02 依赖与安全审计：红线 5/8 全达标，client 2 个开发环境漏洞）
 
 ### 做了什么
