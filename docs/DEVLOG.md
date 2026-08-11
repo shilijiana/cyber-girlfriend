@@ -5,6 +5,28 @@
 
 ---
 
+## 2026-08-11（CC-03 验收：3 缺陷关闭 + 发现真实缺陷 H6 登记 CC-04）
+
+### 做了什么
+- 核对 CC-03 整改（commit a6db379）：
+  - DEF-A-01：orchestrator-degradation-test 12/12 ✅（更新脱敏断言）
+  - DEF-A-02：ws-smoke-test 6/6 ✅（真实 Qwen 会话 + 人设注入成功，测试侧修复）
+  - DEF-V-01：gateway-unit-test 25/25 ✅（删除设计边界用例并注明）
+  - M-P：`persona/file-persona-provider-test.ts` 9/9 ✅；M-C：`config/loader-test.ts` 9/9 ✅
+  - 回归全绿 + tsc 零错误 + build 通过
+- **⚠️ 发现真实生产缺陷（整改子任务上报）**：H6 路径校验 `dir.startsWith(this.personasDir)` 在 Windows 正斜杠配置下恒失败——config 里 `personasDir='C:/Users/...'`（正斜杠），`resolve()` 输出反斜杠，校验误判"路径越界"。**实测生产路径 getPersona('xiaodai') 抛错**（影响人设注入！）
+- 已登记 CC-04（H6 修复），更新 TASKS/TASKS-CONFIG
+
+### 决策
+- CC-03 验收通过（测试侧完成）；CC-04 修复方案：校验改 `startsWith(resolve(this.personasDir))` 规范化 base
+- 修复属业务代码改动，出 CC-04 任务卡派发
+
+### 阻塞 / 下一步
+- 派 CC-04（H6 路径校验修复，P1）——修复后验证 getPersona 生产路径通过
+- 验证人设注入链路（此前可能一直走降级，需复测）
+
+---
+
 ## 2026-08-11（CC-03 测试缺陷整改出卡：3 缺陷 + M-P/M-C 补测）
 
 ### 做了什么

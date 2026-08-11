@@ -163,7 +163,8 @@ config → app → persona → brain → voice-shell → avatar → client
 |----|------|--------|------|----------|----------|
 | CC-01 | 已交付代码审查 | P1 | ✅ | 审查全部 36 个核心文件，报告含分级问题+合规检查+契约对照（2026-08-11 完成：48 问题；整改见 CC-01-02 整改文档） | 说明 `docs/reviews/CC-01_说明文档.md` + 反馈 `docs/reviews/CC-01_反馈文档.md` |
 | CC-02 | 依赖与安全审计 | P1 | ✅ | 依赖清单分析 + npm audit + 配置/密钥检查 + 建议（2026-08-11 完成：依赖最小化达标，esbuild/vite 漏洞已随整改修复） | 说明 `docs/reviews/CC-02_说明文档.md` + 反馈 `docs/reviews/CC-02_反馈文档.md` |
-| CC-03 | 测试缺陷整改 | P1 | 🔄 已出卡 | 整改 DEF-A-01/DEF-A-02/DEF-V-01 + 补 M-P/M-C 测试文件；重跑 312 用例全绿 | 说明 `docs/reviews/CC-03_测试缺陷整改说明.md` + 记录 `docs/reviews/CC-03_测试缺陷整改记录.md` |
+| CC-03 | 测试缺陷整改 | P1 | ✅ | 整改 DEF-A-01/DEF-A-02/DEF-V-01 + 补 M-P/M-C 测试文件（2026-08-11 完成：3 缺陷关闭、M-P 9/9 + M-C 9/9、全量回归绿；⚠️ 发现真实缺陷 H6 路径校验，登记 CC-04） | 说明 `docs/reviews/CC-03_测试缺陷整改说明.md` + 记录 `docs/reviews/CC-03_测试缺陷整改记录.md` |
+| CC-04 | H6 路径校验修复（真实生产缺陷） | P1 | 📋 待出卡 | `file-persona-provider.ts` resolveIdDir 校验改为 `startsWith(resolve(this.personasDir))` 规范化 base；验证 getPersona 生产路径通过 | 待出卡 |
 
 ---
 
