@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-08-12（字幕重叠修复：说话人切换逻辑）
+
+- **问题**：老板反馈语音字幕重叠——用户转写和 AI 回复拼接在一起
+- **根因**：字幕缓冲没有说话人切换——用户转写 completed 用 `replace`，AI 字幕 delta 用 `append`，AI 开始说话时直接追加到用户的话后面
+- **修复**：`client/src/App.tsx` 加 `speakerRef`（'user'/'assistant'）——AI 字幕首段 delta 到达时先 `replace` 清掉用户的话再累积；用户转写/文字回复时切换说话人
+- **事件流实锤**（后端调试日志）：`response.audio_transcript.delta`（AI 字幕）与 `conversation.item.input_audio_transcription.completed`（用户转写）交错到达
+- **验证**：tsc 根+client 零错误；待语音实测
+
+---
+
 ## 2026-08-11（语音即时应答：Hermes 执行前先应一声）
 
 - **需求**：老板提出 Hermes 处理复杂任务期间用户听到沉默，应先语音回复"马上开始"/"正在执行"等短句，模仿真人

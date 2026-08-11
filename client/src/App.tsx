@@ -27,19 +27,29 @@ export default function App() {
   const captionBuf = useRef(createCaptionBuffer(200));
   const [caption, setCaption] = useState('');
   const [captionTone, setCaptionTone] = useState<CaptionTone>('assistant');
+  // 当前说话人（ref 防闭包过期）：'user' | 'assistant' | null
+  // 修复字幕重叠：AI 字幕首段 delta 到达时先 replace（清掉用户的话）再累积
+  const speakerRef = useRef<'user' | 'assistant' | null>(null);
 
   // 波形能量（CL-05：AI 播放能量 0~1）
   const [energy, setEnergy] = useState(0);
 
   const voice = useVoice({
     onSubtitle: (t) => {
-      captionBuf.current.append(t);
+      // 说话人切换：AI 首段字幕到达 → 先清掉用户的话再累积（防重叠）
+      if (speakerRef.current !== 'assistant') {
+        captionBuf.current.replace(t);
+        speakerRef.current = 'assistant';
+      } else {
+        captionBuf.current.append(t);
+      }
       setCaption(captionBuf.current.text);
       setCaptionTone('assistant');
     },
     onUserTranscript: (t, delta) => {
       if (delta) return; // 增量转写不展示，最终完整转写整段显示
       captionBuf.current.replace(t);
+      speakerRef.current = 'user';
       setCaption(captionBuf.current.text);
       setCaptionTone('user');
     },
@@ -69,6 +79,7 @@ export default function App() {
           onReply={(r) => {
             if (r.ok) {
               captionBuf.current.replace(r.reply);
+              speakerRef.current = 'assistant';
               setCaption(captionBuf.current.text);
               setCaptionTone('assistant');
             }
