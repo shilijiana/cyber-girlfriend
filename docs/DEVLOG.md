@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-08-11（语音即时应答：Hermes 执行前先应一声）
+
+- **需求**：老板提出 Hermes 处理复杂任务期间用户听到沉默，应先语音回复"马上开始"/"正在执行"等短句，模仿真人
+- **方案**：改 `hermesBrainTool.description`，提示 Qwen-Audio 在调用工具前先用一句话简短回应（零代码逻辑改动，只改字符串）
+- **改动**：`brain/function-router.ts` hermesBrainTool.description 追加"【重要】调用本工具前，务必先用一句话简短回应用户"
+- **原理**：Qwen-Audio Realtime 在决定调用 function_call 前会先生成语音响应，description 提示它会自然地先说"好的，我看看"等即时反馈，然后再下发 function_call → Hermes 执行
+- **验证**：tsc 零错误；需语音实测确认 Qwen 是否遵循 prompt 提示
+
+---
+
 ## 2026-08-11（数字人素材显示修复：后端静态服务 + Vite 代理 + manifest 绝对路径）
 
 - **问题**：前端打开只显示"待机中"占位图，不显示数字人视频
