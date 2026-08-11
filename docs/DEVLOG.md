@@ -3,6 +3,21 @@
 > **按时间倒序记录开发进度、决策、阻塞。最新在最上面。**
 > 规则：每条记录写日期 + 做了什么 + 决策 + 阻塞/下一步。简洁不啰嗦。
 
+## 2026-08-12（字幕修复 v3：双字幕条分离 + 字幕抓取器）
+
+- **问题**：老板能看到自己的字幕，但看不到小呆回复字幕
+- **定位**（字幕抓取器实锤）：后端字幕完整（132 行全抓到），前端也收到（调试条显示）→ 问题在**单字幕条 + 时序覆盖**——小呆回复一出现就被用户转写/下一轮事件覆盖
+- **老板方案**：双字幕条分离——用户字幕在上、小呆字幕在下，永不互扰 ✅
+- **修复**（v3）：
+  1. `App.tsx`：拆两个独立缓冲（userCaptionBuf/assistantCaptionBuf）+ 两个 CaptionBar（caption-top/caption-bottom），移除 speakerRef/VAD 清空逻辑/调试条
+  2. `index.css`：caption-top（顶部用户）/ caption-bottom（底部小呆）+ z-index 2
+  3. `tools/subtitle-capture.ts`（新）：字幕抓取器，SUBTITLE_CAPTURE=1 启用，实时写 docs/reviews/test-reports/subtitle-capture-*.log
+  4. `ws.ts`：挂载字幕抓取器（gateway deps.onSubtitle/onInputTranscript）
+- **验证**：tsc 根+client 零错误；待语音实测
+- **顺带**：移除 qwen-audio-client 调试日志；临时 WS 测试脚本已删
+
+---
+
 ## 2026-08-12（字幕修复 v2：VAD 驱动字幕状态机，解决滞后转写覆盖 AI 字幕）
 
 - **问题**：老板反馈修复重叠后"回复字幕不显示"——滞后到达的用户转写 completed 清掉了正在显示的 AI 字幕

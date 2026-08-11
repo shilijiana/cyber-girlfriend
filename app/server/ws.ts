@@ -28,6 +28,7 @@ import {
   type BrowserSocket,
 } from '../../voice-shell/gateway.ts';
 import { createFunctionCallingLayer } from '../../voice-shell/function-calling.ts';
+import { createSubtitleCapture, isSubtitleCaptureEnabled } from '../../tools/subtitle-capture.ts';
 
 /** WS 挂载路径（契约 §2.1） */
 export const VOICE_WS_PATH = '/ws/voice';
@@ -89,10 +90,17 @@ export function setupVoiceWebSocket(deps: VoiceWsDeps): VoiceWsHandle {
     log,
   });
   // ② 语音网关：浏览器 ↔ Qwen 双向中继（下行 audio/subtitle/emotion/vadState/function_call 分发）
+  // 字幕抓取器（SUBTITLE_CAPTURE=1 启用）：挂 deps.onSubtitle/onInputTranscript，实时写文件供审核
+  const subtitleCapture = createSubtitleCapture();
+  if (isSubtitleCaptureEnabled()) {
+    log('info', `字幕抓取已启用 → ${subtitleCapture.file ?? '（待创建）'}`);
+  }
   const gateway = createVoiceGateway({
     provider: deps.provider ?? createQwenAudioClient({ tools: fc.tools }),
     onFunctionCall: fc.onFunctionCall, // ③ function_call → router.handle → sendFunctionCallOutput 写回
     onSessionCreated: fc.onSessionCreated, // ④ 会话建立后拿 session 用于写回 + 浏览器 brain 状态
+    onSubtitle: subtitleCapture.onSubtitle, // 字幕抓取：AI 字幕增量
+    onInputTranscript: subtitleCapture.onInputTranscript, // 字幕抓取：用户转写
     log,
   });
 

@@ -45,7 +45,7 @@ body {
   gap: 16px;
 }
 
-/* ---------- 数字人 + 字幕 overlay ---------- */
+/* ---------- 数字人 + 双字幕 overlay（2026-08-12：用户上/小呆下，互不覆盖） ---------- */
 .hero {
   position: relative;
 }
@@ -53,7 +53,6 @@ body {
 .caption-bar {
   position: absolute;
   left: 50%;
-  bottom: 14px;
   transform: translateX(-50%);
   max-width: 92%;
   padding: 8px 18px;
@@ -65,6 +64,17 @@ body {
   text-align: center;
   backdrop-filter: blur(4px);
   animation: caption-in 0.25s ease-out;
+  z-index: 2; /* 确保在数字人视频之上 */
+}
+
+/* 小呆字幕：底部（默认） */
+.caption-bottom {
+  bottom: 14px;
+}
+
+/* 用户字幕：顶部 */
+.caption-top {
+  top: 14px;
 }
 
 .caption-text {

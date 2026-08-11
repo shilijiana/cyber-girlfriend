@@ -13,7 +13,7 @@
 import { useCallback, useRef, useState } from 'react';
 import AvatarCanvas from './components/AvatarCanvas.tsx';
 import ChatUI from './components/ChatUI.tsx';
-import CaptionBar, { type CaptionTone } from './components/CaptionBar.tsx';
+import CaptionBar from './components/CaptionBar.tsx';
 import VoiceWaveform from './components/VoiceWaveform.tsx';
 import { createCaptionBuffer } from './components/caption-core.ts';
 import useAvatar from './hooks/use-avatar.ts';
@@ -23,44 +23,27 @@ import type { Emotion } from '../../avatar/clip-matcher.ts';
 export default function App() {
   const avatar = useAvatar();
 
-  // 字幕缓冲（CL-04：AI 副文本增量累积 / 用户转写整段替换）
-  const captionBuf = useRef(createCaptionBuffer(200));
-  const [caption, setCaption] = useState('');
-  const [captionTone, setCaptionTone] = useState<CaptionTone>('assistant');
-  // 当前说话人（ref 防闭包过期）：'user' | 'assistant' | null
-  // 修复字幕重叠：AI 字幕首段 delta 到达时先 replace（清掉用户的话）再累积
-  const speakerRef = useRef<'user' | 'assistant' | null>(null);
+  // 字幕缓冲 v3（双字幕条：用户上、小呆下，互不覆盖——2026-08-12 老板方案）
+  // 用户转写整段替换（自己独立缓冲）；小呆字幕增量累积（自己独立缓冲）
+  const userCaptionBuf = useRef(createCaptionBuffer(200));
+  const assistantCaptionBuf = useRef(createCaptionBuffer(200));
+  const [userCaption, setUserCaption] = useState('');
+  const [assistantCaption, setAssistantCaption] = useState('');
 
   // 波形能量（CL-05：AI 播放能量 0~1）
   const [energy, setEnergy] = useState(0);
 
   const voice = useVoice({
-    onVadState: (speaking) => {
-      // VAD 驱动字幕状态机：用户开口 → 清空字幕 + 切到 user 模式（防滞后转写覆盖 AI 字幕）
-      if (speaking) {
-        captionBuf.current.reset();
-        speakerRef.current = 'user';
-        setCaption('');
-        setCaptionTone('user');
-      }
-    },
     onSubtitle: (t) => {
-      // 说话人切换：AI 首段字幕到达 → 先清掉用户的话再累积（防重叠）
-      if (speakerRef.current !== 'assistant') {
-        captionBuf.current.replace(t);
-        speakerRef.current = 'assistant';
-      } else {
-        captionBuf.current.append(t);
-      }
-      setCaption(captionBuf.current.text);
-      setCaptionTone('assistant');
+      // 小呆字幕：独立缓冲增量累积（不覆盖用户字幕）
+      assistantCaptionBuf.current.append(t);
+      setAssistantCaption(assistantCaptionBuf.current.text);
     },
     onUserTranscript: (t, delta) => {
       if (delta) return; // 增量转写不展示，最终完整转写整段显示
-      captionBuf.current.replace(t);
-      speakerRef.current = 'user';
-      setCaption(captionBuf.current.text);
-      setCaptionTone('user');
+      // 用户字幕：独立缓冲整段替换（不覆盖小呆字幕）
+      userCaptionBuf.current.replace(t);
+      setUserCaption(userCaptionBuf.current.text);
     },
     onEmotion: (e: Emotion) => avatar.setEmotion(e),
     onEnergy: (e) => setEnergy(e),
@@ -81,16 +64,17 @@ export default function App() {
       <main className="app-main">
         <section className="hero">
           <AvatarCanvas state={avatar.state} emotion={avatar.emotion} library={avatar.library} loop={false} />
-          <CaptionBar text={caption} tone={captionTone} />
+          {/* 双字幕条：用户字幕（上）+ 小呆字幕（下），互不覆盖 */}
+          <CaptionBar text={userCaption} tone="user" className="caption-top" />
+          <CaptionBar text={assistantCaption} tone="assistant" className="caption-bottom" />
         </section>
 
         <ChatUI
           onReply={(r) => {
             if (r.ok) {
-              captionBuf.current.replace(r.reply);
-              speakerRef.current = 'assistant';
-              setCaption(captionBuf.current.text);
-              setCaptionTone('assistant');
+              // 文字回复：显示在小呆字幕条
+              assistantCaptionBuf.current.replace(r.reply);
+              setAssistantCaption(assistantCaptionBuf.current.text);
             }
           }}
         />
