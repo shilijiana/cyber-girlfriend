@@ -43,6 +43,7 @@ interface GatewayDownstream {
   result?: string;         // brain 结果
   message?: string;        // error 描述
   config?: { sampleRate?: number }; // ready 配置
+  speaking?: boolean;      // vad_state: 用户是否正在说话（VAD，字幕清空驱动）
 }
 
 export interface UseVoiceOptions {
@@ -58,6 +59,8 @@ export interface UseVoiceOptions {
   onBrainStatus?: (status: 'working' | 'done', result?: string) => void;
   /** AI 播放能量回调（0~1，CL-05 波形能量源；经 player AnalyserNode 采样） */
   onEnergy?: (energy: number) => void;
+  /** VAD 状态回调（用户开始/结束说话；驱动字幕清空与说话人切换） */
+  onVadState?: (speaking: boolean) => void;
   /** 错误回调（网关 error / 连接失败 / 麦克风拒绝） */
   onError?: (message: string) => void;
 }
@@ -125,6 +128,9 @@ export function useVoice(options: UseVoiceOptions = {}): UseVoiceResult {
         break;
       case 'user_transcript':
         if (typeof ev.text === 'string') opts.onUserTranscript?.(ev.text, ev.delta === true);
+        break;
+      case 'vad_state':
+        if (typeof ev.speaking === 'boolean') opts.onVadState?.(ev.speaking);
         break;
       case 'emotion':
         if (ev.emotion) opts.onEmotion?.(ev.emotion);

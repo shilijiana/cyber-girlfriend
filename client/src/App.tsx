@@ -35,6 +35,15 @@ export default function App() {
   const [energy, setEnergy] = useState(0);
 
   const voice = useVoice({
+    onVadState: (speaking) => {
+      // VAD 驱动字幕状态机：用户开口 → 清空字幕 + 切到 user 模式（防滞后转写覆盖 AI 字幕）
+      if (speaking) {
+        captionBuf.current.reset();
+        speakerRef.current = 'user';
+        setCaption('');
+        setCaptionTone('user');
+      }
+    },
     onSubtitle: (t) => {
       // 说话人切换：AI 首段字幕到达 → 先清掉用户的话再累积（防重叠）
       if (speakerRef.current !== 'assistant') {

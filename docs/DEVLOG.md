@@ -3,9 +3,20 @@
 > **按时间倒序记录开发进度、决策、阻塞。最新在最上面。**
 > 规则：每条记录写日期 + 做了什么 + 决策 + 阻塞/下一步。简洁不啰嗦。
 
+## 2026-08-12（字幕修复 v2：VAD 驱动字幕状态机，解决滞后转写覆盖 AI 字幕）
+
+- **问题**：老板反馈修复重叠后"回复字幕不显示"——滞后到达的用户转写 completed 清掉了正在显示的 AI 字幕
+- **实锤**（后端全事件日志）：12 个 `response.audio_transcript.delta`（AI 字幕）→ 中间插入 `input_audio_transcription.completed`（用户滞后转写）→ 26 个 audio.delta 继续
+- **根因**：用户转写是**滞后事件**，到达时 AI 正在显示字幕，前端 replace 清掉 AI 字幕，后续 AI 字幕又被单字符 replace → 看似无字幕
+- **修复**（3 文件）：
+  1. `gateway.ts`：VAD 状态广播给浏览器（`{type:'vad_state', speaking}`）
+  2. `useVoice.ts`：新增 `onVadState` 回调 + vad_state 事件处理
+  3. `App.tsx`：VAD 驱动状态机——用户开口（speaking=true）→ 清空字幕 + 切 user 模式；AI 字幕首段 → replace 切 assistant；转写 completed → 正常 replace
+- **验证**：tsc 根+client 零错误；待语音实测
+
 ---
 
-## 2026-08-12（字幕重叠修复：说话人切换逻辑）
+
 
 - **问题**：老板反馈语音字幕重叠——用户转写和 AI 回复拼接在一起
 - **根因**：字幕缓冲没有说话人切换——用户转写 completed 用 `replace`，AI 字幕 delta 用 `append`，AI 开始说话时直接追加到用户的话后面

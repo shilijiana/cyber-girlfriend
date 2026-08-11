@@ -202,6 +202,7 @@ class VoiceGatewayImpl implements VoiceGateway {
       onEmotion: (e) => sendToBrowser({ type: 'emotion', emotion: e }),
       // VS-04 VAD：用户说话 → listening 态（AI 若在播，服务端 server_vad 会自动打断，
       // 客户端只需把状态透传给前端驱动数字人/UI）；语音结束 → 回 connected 等 AI 响应
+      // 字幕修复：VAD 状态同时广播给浏览器（前端据此清空字幕/切换说话人，防滞后转写覆盖 AI 字幕）
       onVadState: (speaking) => {
         if (closed) return;
         if (speaking) {
@@ -211,6 +212,7 @@ class VoiceGatewayImpl implements VoiceGateway {
         } else if (state === 'listening') {
           setState('connected');
         }
+        sendToBrowser({ type: 'vad_state', speaking });
       },
       // M17：用户语音转写（VS-05）走 dispatcher 统一分发（错误隔离）
       onInputTranscript: (text, info) => {
