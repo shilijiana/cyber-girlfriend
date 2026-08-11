@@ -5,6 +5,27 @@
 
 ---
 
+## 2026-08-11（CC-04 修复完成：H6 路径校验治本）
+
+### 做了什么
+- 老板指示直接修复 CC-04（H6 路径校验真实缺陷）：
+  - `persona/file-persona-provider.ts` resolveIdDir：校验改为 `dir.toLowerCase().startsWith(resolve(this.personasDir).toLowerCase())`——resolve 规范化 base（兼容正斜杠/反斜杠）+ 大小写归一（Windows）
+- **实测验证**：
+  - `getPersona('xiaodai')` 生产路径通过（instructions 946 字符）——修复前抛"路径越界"
+  - 路径越界仍拦截：`..`、`..\..\evil` 均被拒
+  - M-P 测试 9/9 ✅、tsc 零错误 ✅、ws-smoke 6/6 ✅
+  - 后端启动：`/api/personas` 真实返回 3 角色（小呆/知心姐姐/助手），日志无"路径越界"
+- 文档同步：TASKS/TASKS-CONFIG CC-04 标 ✅、单模块整改文档 DEF-A-02 补记治本修复
+
+### 决策
+- 修复方案：resolve 规范化 + toLowerCase（比仅 resolve 更稳，防 Windows 大小写差异）
+
+### 阻塞 / 下一步
+- 人设链路修复完成——后续系统测试（SYS-01~12）可在真实人设注入下执行
+- 待办：系统测试执行、ACP 常驻验证
+
+---
+
 ## 2026-08-11（CC-03 验收：3 缺陷关闭 + 发现真实缺陷 H6 登记 CC-04）
 
 ### 做了什么

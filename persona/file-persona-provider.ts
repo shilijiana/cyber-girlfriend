@@ -135,7 +135,10 @@ class FilePersonaProviderImpl implements PersonaProvider {
     if (!ID_PATTERN.test(id)) throw new Error(`非法人设 id:${id}`);
     const dir = resolve(this.personasDir, id);
     // H6:路径二次校验——解析结果必须以 personasDir 开头(防 ../ 穿越绕过正则)
-    if (!dir.startsWith(this.personasDir)) {
+    // CC-04 修复：base 用 resolve() 规范化，兼容 Windows 正斜杠/反斜杠混用（config 存正斜杠、
+    //   resolve() 输出反斜杠，直接 startsWith 会恒 false 误判"路径越界"）；大小写一并归一（Windows 不区分）
+    const base = resolve(this.personasDir);
+    if (!dir.toLowerCase().startsWith(base.toLowerCase())) {
       throw new Error(`非法人设 id:${id}(路径越界)`);
     }
     return dir;
