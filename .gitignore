@@ -45,3 +45,7 @@ Thumbs.db
 cybergirlfriend/_tmp_*
 cybergirlfriend/.tools/
 cybergirlfriend/node_modules/
+
+# ===== npm 缓存（误提交清理，不入库）=====
+.cache2/
+.tmp-npm-cache/
