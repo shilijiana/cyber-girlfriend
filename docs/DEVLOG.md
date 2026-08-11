@@ -5,6 +5,19 @@
 
 ---
 
+## 2026-08-11（数字人素材显示修复：后端静态服务 + Vite 代理 + manifest 绝对路径）
+
+- **问题**：前端打开只显示"待机中"占位图，不显示数字人视频
+- **根因**：manifest 的 clips src 是相对路径 `clips/xxx.mp4`，前端 `<video>` 访问 `http://localhost:5173/clips/xxx.mp4`，但 Vite 只服务 `client/` 目录 → 404 → 降级占位
+- **修复**（3 处）：
+  1. `app/server/index.ts`：加 `express.static` 挂载 `/avatars` → `assets/avatars/`（用 `dirname` 正确计算项目根）
+  2. `client/vite.config.ts`：代理加 `/avatars` → 后端 3000
+  3. 三个 manifest（`avatar/`、`assets/avatars/`、`avatar/manifest.example.json`）：src 加 `/avatars` 前缀（绝对路径）
+- **验证**：后端 3000 `/avatars/clips/xxx.mp4` HTTP 200 video/mp4 ✅；前端 5173 代理 HTTP 200 ✅；tsc 零错误 ✅
+- **坑点**：`resolve(fileURLToPath(import.meta.url), '..','..')` 把 `index.ts` 当目录名，少回退一层 → 用 `dirname()` 修复
+
+---
+
 ## 2026-08-11（CC-04 修复完成：H6 路径校验治本）
 
 ### 做了什么

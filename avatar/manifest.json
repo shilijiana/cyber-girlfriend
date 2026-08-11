@@ -1,11 +1,11 @@
 {
   "version": 1,
   "clips": [
-    { "id": "happy_01", "emotion": "happy", "durationSec": 11.01, "src": "clips/anime_girl_1_pexels.mp4" },
-    { "id": "gentle_01", "emotion": "gentle", "durationSec": 13.01, "src": "clips/anime_girl_2_pexels.mp4" },
-    { "id": "neutral_01", "emotion": "neutral", "durationSec": 12.01, "src": "clips/anime_girl_3_pexels.mp4" },
-    { "id": "serious_01", "emotion": "serious", "durationSec": 11.67, "src": "clips/girl_portrait_1_pexels.mp4" },
-    { "id": "surprise_01", "emotion": "surprise", "durationSec": 7.12, "src": "clips/girl_portrait_2_pexels.mp4" },
-    { "id": "neutral_02", "emotion": "neutral", "durationSec": 7.84, "src": "clips/girl_portrait_3_pexels.mp4" }
+    { "id": "happy_01", "emotion": "happy", "durationSec": 11.01, "src": "/avatars/clips/anime_girl_1_pexels.mp4" },
+    { "id": "gentle_01", "emotion": "gentle", "durationSec": 13.01, "src": "/avatars/clips/anime_girl_2_pexels.mp4" },
+    { "id": "neutral_01", "emotion": "neutral", "durationSec": 12.01, "src": "/avatars/clips/anime_girl_3_pexels.mp4" },
+    { "id": "serious_01", "emotion": "serious", "durationSec": 11.67, "src": "/avatars/clips/girl_portrait_1_pexels.mp4" },
+    { "id": "surprise_01", "emotion": "surprise", "durationSec": 7.12, "src": "/avatars/clips/girl_portrait_2_pexels.mp4" },
+    { "id": "neutral_02", "emotion": "neutral", "durationSec": 7.84, "src": "/avatars/clips/girl_portrait_3_pexels.mp4" }
   ]
 }

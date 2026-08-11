@@ -22,7 +22,7 @@
 import express from 'express';
 import type { Express } from 'express';
 import { createServer } from 'http';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { config, maskKey } from '../../config/loader.ts';
 import { createApiRouter } from './routes.ts';
@@ -100,6 +100,13 @@ export function createApp(): Express {
 
   // 中间件
   app.use(express.json());
+
+  // 数字人素材静态服务（/avatars → config.avatar.assetsPath）
+  // 前端 <video> 通过 /avatars/clips/*.mp4 访问素材，避免 Vite dev server 只服务 client/ 的限制
+  const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const avatarAssetsDir = resolve(projectRoot, config.avatar.assetsPath);
+  console.log('[app] avatar 静态服务:', avatarAssetsDir);
+  app.use('/avatars', express.static(avatarAssetsDir));
 
   // REST API（/api 前缀）
   app.use('/api', createApiRouter(config, getOrchestrator()));
