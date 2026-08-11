@@ -86,6 +86,7 @@ Express 后端（Core Orchestrator，自研 ~400 行）
 | 单模块测试 | 计划：`docs/reviews/单模块测试计划.md`；执行/整改：`docs/reviews/单模块测试执行与整改文档.md`；报告：`docs/reviews/test-reports/` |
 | 系统测试 | 计划：`docs/reviews/系统测试计划.md`（12 场景端到端，L3 真实链路）；执行/整改：`docs/reviews/系统测试执行与整改文档.md`（DEF-SYS-* 缺陷体系） |
 | 应用手册 | `docs/应用手册.md`（面向终端用户：概述/功能清单/使用指南/设置/FAQ/版本） |
+| Hermes 调用机制 | `docs/Hermes调用机制完整文档.md`（两条路径+降级+配置+安全+性能+调试） |
 | 备选方案对比 | `docs/research/Qwen3-Omni-调研笔记.md`、`docs/research/豆包Seeduplex-调研报告.md` |
 | 当前任务与进度 | `docs/TASKS.md` |
 | 开发日志 | `docs/DEVLOG.md` |
