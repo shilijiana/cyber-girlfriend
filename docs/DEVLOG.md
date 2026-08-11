@@ -3,6 +3,18 @@
 > **按时间倒序记录开发进度、决策、阻塞。最新在最上面。**
 > 规则：每条记录写日期 + 做了什么 + 决策 + 阻塞/下一步。简洁不啰嗦。
 
+## 2026-08-12（即时应答硬性化：description 软约束 → 拦截 function_call 强制注入）
+
+- **问题**：老板实测第三轮复杂任务（打开网页）时，小呆没先说"正在执行"，等 Hermes 完成才说话
+- **根因**：此前方案靠 hermesBrainTool.description 提示 Qwen"调用前先说一句"——这是**软约束**，Qwen 时遵守时不遵守（模型行为不确定）
+- **修复**（硬性保底）：
+  1. `function-calling.ts`：onFunctionCall 拦截到 function_call 时，**立即 `injectAssistantText` 注入随机短句**（"好的，马上开始~"/"收到，正在执行~"等 4 句随机），Hermes 执行前用户必听到即时反馈
+  2. `function-router.ts`：恢复 description（移除"调用前先说话"提示，避免 Qwen 自发说造成重复）
+- **原理**：VoiceSession.injectAssistantText 插入 user 消息 + response.create → Qwen 朗读注入文本
+- **验证**：tsc 零错误 + function-calling 单测全过；待语音实测
+
+---
+
 ## 2026-08-12（字幕修复 v3：双字幕条分离 + 字幕抓取器）
 
 - **问题**：老板能看到自己的字幕，但看不到小呆回复字幕

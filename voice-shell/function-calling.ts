@@ -43,6 +43,9 @@ export interface FunctionCallingLayerDeps {
   onBrainStatus?: (status: BrainStatus, result?: string) => void;
   /** 日志回调（默认 console） */
   log?: (level: 'debug' | 'info' | 'warn' | 'error', msg: string, meta?: unknown) => void;
+  /** 即时应答文案（Hermes 执行前注入，让用户先听到"正在执行"；默认内置几句随机）
+   *  2026-08-12：老板反馈 description 软约束不稳定（有时不说"正在执行"）→ 改为硬性注入 */
+  instantReplies?: string[];
 }
 
 /** 装配层产物：三个钩子，分别挂到 gateway deps 对应字段 */
@@ -96,7 +99,24 @@ export function createFunctionCallingLayer(
         args: call.arguments,
       });
 
-      // ② 执行（router.handle 不抛错：未知工具/参数非法/超时都以 failed 写回）
+      // ② 硬性即时应答（2026-08-12）：Hermes 执行需几秒~几十秒，
+      //    拦截 function_call 立即注入"正在执行"类短句，让用户先听到反馈（模仿真人）
+      //    ——不再依赖 Qwen description 软约束（实测不稳定，有时不说）
+      const replies = deps.instantReplies ?? [
+        '好的，马上开始~',
+        '收到，正在执行，请稍等~',
+        '没问题，我这就去办~',
+        'OK，知道了，马上搞定~',
+      ];
+      const instant = replies[Math.floor(Math.random() * replies.length)];
+      try {
+        ctx.session.injectAssistantText(instant);
+        log('debug', '已注入即时应答', { instant });
+      } catch (e) {
+        log('warn', '即时应答注入失败（不影响 Hermes 执行）', { error: e instanceof Error ? e.message : String(e) });
+      }
+
+      // ③ 执行（router.handle 不抛错：未知工具/参数非法/超时都以 failed 写回）
       router
         .handle(call)
         .then((out: FunctionCallOutput) => {
@@ -104,9 +124,9 @@ export function createFunctionCallingLayer(
             callId: out.callId,
             status: out.status,
           });
-          // ③ 写回 function_call_output + response.create → Qwen 语音回复
+          // ④ 写回 function_call_output + response.create → Qwen 语音回复
           ctx?.session.sendFunctionCallOutput(out);
-          // ④ 状态：done / failed
+          // ⑤ 状态：done / failed
           broadcastStatus(out.status === 'completed' ? 'done' : 'failed', out.output);
         })
         .catch((e: unknown) => {
