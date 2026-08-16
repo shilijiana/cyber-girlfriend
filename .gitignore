@@ -49,3 +49,9 @@ cybergirlfriend/node_modules/
 # ===== npm 缓存（误提交清理，不入库）=====
 .cache2/
 .tmp-npm-cache/
+
+# ===== Git 备份目录（不入库）=====
+.git_backup_20260813/
+
+# ===== 人物参考素材（老板素材库，不入库）=====
+人物模型/
