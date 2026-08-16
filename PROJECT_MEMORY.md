@@ -156,7 +156,7 @@
   - [x] **旧脚手架迁移重构（AP-04）完成**（2026-08-09）：根 `package.json` 规范化（name=cyber-girlfriend + typecheck 脚本）、新建 `tsconfig.json`（strict/NodeNext/allowImportingTsExtensions）；删除 `cybergirlfriend/server/` 全部废弃文件（db.ts/mcp-servers.ts/index.ts/index.d.ts/avatar/clip-matcher.ts）；安装 typescript+@types/express 开发依赖；运行时依赖 13→1（仅 express）；`npm run typecheck` 零错误、`/api/health`+`/api/chat` 实测通过
   - [x] **Function Router（BR-02）完成**（2026-08-09）：`brain/function-router.ts` 交付——extractFunctionCall 兼容 3 种下行事件形态 / handle 拦截 hermes_brain → 调 runner / buildFunctionCallOutputEvent 构造写回 / hermesBrainTool 工具 schema（VS-06 直接用）；契约 v1.4 §2.8 登记；tsc 零错误 + 冒烟 12/12 + 真实 Hermes `1+1=?` → `2`（8.1s）
   - [x] **HermesPersonaProvider 实现（PS-02）完成**（2026-08-09）：`persona/hermes-persona-provider.ts` 交付（hermes -z 获取人设，JSON 容错 + 类型守卫）
-  - [ ] Git init + 首次提交
+  - [x] **Git init + 首次提交**（2026-08-17 恢复完成）：本地 .git 于 8/13 被清理（回收站有删除记录），已从 `.git_backup_20260813/` 完整备份恢复（HEAD 6585466 与远端 main 一致）；提交 `e39b253`（feat(client): 沉浸式分屏界面重构 2026-08-16）推送成功（SSH，`6585466..e39b253`）
 - [ ] P2 工作集成增强（Hermes 常驻 + 多轮）
 - [ ] P3 S2S 语音回归（Qwen 端到端网关）
 - [x] **素材库数字人启动（AV-01）完成**（2026-08-09）：`avatar/clip-matcher.ts` 从 cybergirlfriend 迁移并适配契约 v1.2 §2.5——素材库构造注入（`createClipMatcher`）、buildQueue 毫秒单位、`AvatarEmotion/AvatarClip` 改公共类型 `Emotion/Clip`；自检 16/16 通过（node 原生 TS，未引入测试框架）
