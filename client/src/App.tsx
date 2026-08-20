@@ -1,78 +1,177 @@
 /**
- * client/src/App.tsx —— 前端壳（2026-08-16 沉浸式分屏重构版）
+ * client/src/App.tsx —— 前端壳（2026-08-21 全屏沉浸版 · 语音/文字对话合并）
  *
- * 老板参考图风格：
- *   · 顶部品牌栏（左：赛博女友 / CYBER GIRLFRIEND，右：技术栈装饰条）
- *   · 分屏主体（左 ~38% 对话区 + 右 ~62% 数字人画布）
- *   · 左：对话引用流（最近 3 条，参考图叙事排版） + 状态行 + 输入栏
- *   · 右：AvatarCanvas + 双字幕条（用户上/小呆下，互不覆盖）
+ * 布局（老板指示 2026-08-21 两次更新）：
+ *   · 整页播放数字人视频（全屏背景层），聊天框半透明浮层叠在视频上
+ *   · 顶部品牌栏半透明悬浮
+ *   · 【合并】语音字幕并入对话流：用户语音转写/小呆语音副文本都作为消息
+ *     显示在同一个对话流里（与文字聊天统一），不再单独占字幕条
+ *   · 【折叠】对话流可折叠：默认收起只显示最近 3 条，点"全部对话"展开全部历史
  *
- * 改动要点：
- *   · 不嵌入 ChatUI 组件（主视觉简化），输入框直接复用 useChat Hook（接口一致）
- *   · ChatUI 组件保留代码，作为完整聊天历史的入口（后续可挂抽屉）
- *   · 所有 hook（useAvatar/useVoice/useChat）接口不变
+ * 结构：
+ *   · .app.fullscreen-layout
+ *     ├── header.brand-bar（半透明悬浮品牌栏）
+ *     └── main.avatar-stage（全屏数字人舞台）
+ *         ├── AvatarCanvas（全屏视频）
+ *         └── aside.chat-overlay（半透明玻璃聊天浮层）
+ *             ├── .state-line（状态行 + 折叠按钮）
+ *             ├── .quote-flow（合并对话流：文字 + 语音，可折叠）
+ *             └── .bottom-area（最近对话计数 + 输入栏）
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AvatarCanvas from './components/AvatarCanvas.tsx';
-import CaptionBar from './components/CaptionBar.tsx';
-import { createCaptionBuffer } from './components/caption-core.ts';
+import { createMessageId } from './components/chat-core.ts';
 import useAvatar from './hooks/use-avatar.ts';
 import useVoice from './hooks/useVoice.ts';
 import { useChat } from './hooks/use-chat.ts';
 import type { Emotion } from '../../avatar/clip-matcher.ts';
 
+/** 语音会话产生的消息（并入对话流显示，与文字消息同构） */
+interface VoiceMsg {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  ts: number;
+  /** 语音来源标记（渲染麦克风小标） */
+  voice?: boolean;
+  /** 正在说的流式消息（说话结束后定稿） */
+  live?: boolean;
+}
+
+/** 折叠时显示的最近消息条数 */
+const COLLAPSED_KEEP = 3;
+
 export default function App() {
   const avatar = useAvatar();
 
-  // ---- 字幕（双缓冲：用户上/小呆下，互不覆盖）----
-  const userCaptionBuf = useRef(createCaptionBuffer(200));
-  const assistantCaptionBuf = useRef(createCaptionBuffer(200));
-  const [userCaption, setUserCaption] = useState('');
-  const [assistantCaption, setAssistantCaption] = useState('');
-
-  // ---- AI 播放能量（驱动右侧数字人区域呼吸动效）----
+  // ---- AI 播放能量（驱动数字人区域呼吸动效）----
   const [energy, setEnergy] = useState(0);
 
-  // ---- 文本聊天（直接用 useChat，不嵌 ChatUI —— 主视觉简洁化）----
-  const {
-    messages: chatMessages,
-    isLoading,
-    inputValue,
-    setInputValue,
-    sendMessage,
-  } = useChat({
-    onReply: (r) => {
-      if (r.ok) {
-        // 文字回复同步到小呆字幕条（同时右侧数字人对话中也显示）
-        assistantCaptionBuf.current.replace(r.reply);
-        setAssistantCaption(assistantCaptionBuf.current.text);
-      }
-    },
-  });
+  // ---- 文本聊天（useChat：消息流 + /api/chat 发送）----
+  const { messages: chatMessages, isLoading, inputValue, setInputValue, sendMessage } = useChat();
 
-  // ---- 语音会话 ----
+  // ---- 语音会话（WS /ws/voice）→ 语音消息并入对话流 ----
+  // 关键：Qwen Realtime 的 user transcript final 与 assistant audio_transcript delta 到达顺序
+  //   不确定（race）——单靠 onUserTranscript 设锚点会晚于 asst delta，导致 asst 排到 user 前。
+  //   改用 VAD speech_started 作为真正的轮次开始锚点（远早于任何 Qwen 处理后事件）：
+  //     ① VAD true → 立即创建 user 占位消息（text=""），ts = seq+1，记 placeholderIdRef/lastUserTsRef
+  //     ② asst delta 到 → ts ≥ placeholder+1，必排在 user 后
+  //     ③ user transcript final 到 → 原地更新 placeholder text（ts 不变，保持位置）
+  //     ④ VAD false 触发定稿或下一轮开始
+  const [voiceMessages, setVoiceMessages] = useState<VoiceMsg[]>([]);
+  const liveIdRef = useRef<string | null>(null); // 当前正在说的语音消息 id
+  const seqRef = useRef(0); // 单调递增的逻辑时间戳
+  const lastUserTsRef = useRef(0); // 最近一轮 user 占位 ts（asst 至少 user+1）
+  const placeholderIdRef = useRef<string | null>(null); // 当前轮的 user 占位 id
+
+  const nextSeqTs = useCallback(() => {
+    seqRef.current = Math.max(seqRef.current + 1, Date.now());
+    return seqRef.current;
+  }, []);
+
+  const commitVoice = useCallback((updater: (prev: VoiceMsg[]) => VoiceMsg[]) => {
+    setVoiceMessages((prev) => updater(prev));
+  }, []);
+
   const voice = useVoice({
+    // 小呆语音副文本：流式写入一条 live 消息（无 live 则新建）
+    // Qwen 的 audio_transcript.delta 是逐字增量片段，必须**追加**而非覆盖（否则只显示最后 1 字）
+    // ts ≥ lastUserTsRef+1：保证排在 user 占位之后（VAD 锚点早于 asst delta，无 race）
     onSubtitle: (t) => {
-      assistantCaptionBuf.current.append(t);
-      setAssistantCaption(assistantCaptionBuf.current.text);
+      const id = liveIdRef.current ?? createMessageId('va');
+      liveIdRef.current = id;
+      commitVoice((prev) => {
+        if (prev.some((m) => m.id === id)) {
+          return prev.map((m) => (m.id === id ? { ...m, text: m.text + t } : m));
+        }
+        const ts = Math.max(nextSeqTs(), lastUserTsRef.current + 1);
+        return [...prev, { id, role: 'assistant', text: t, ts, voice: true, live: true }];
+      });
     },
+    // 用户语音转写 final：原地更新 user 占位的 text（占位已由 VAD 创建），ts 不变保持位置
     onUserTranscript: (t, delta) => {
       if (delta) return; // 增量转写不展示
-      userCaptionBuf.current.replace(t);
-      setUserCaption(userCaptionBuf.current.text);
+      const pid = placeholderIdRef.current;
+      if (pid) {
+        // 占位存在 → 原地填充（不会改 ts，位置不变）
+        commitVoice((prev) => prev.map((m) => (m.id === pid ? { ...m, text: t } : m)));
+        placeholderIdRef.current = null; // 本轮占位完成使命（asst 仍可能继续推）
+      } else {
+        // 无占位（VAD 未触发等异常路径）：降级为直接创建 user 消息
+        const id = createMessageId('vu');
+        const ts = Math.max(nextSeqTs(), lastUserTsRef.current + 1);
+        lastUserTsRef.current = ts;
+        commitVoice((prev) => {
+          if (prev.some((m) => m.id === id)) return prev;
+          return [...prev, { id, role: 'user', text: t, ts, voice: true }];
+        });
+      }
+    },
+    // VAD：用户开始说话（speech_started）→ 立即创建 user 占位，作为本轮时间锚
+    onVadState: (speaking) => {
+      if (!speaking) return;
+      const id = createMessageId('vu');
+      const ts = Math.max(nextSeqTs(), lastUserTsRef.current + 1);
+      lastUserTsRef.current = ts;
+      placeholderIdRef.current = id;
+      commitVoice((prev) => {
+        if (prev.some((m) => m.id === id)) return prev;
+        return [...prev, { id, role: 'user', text: '', ts, voice: true }];
+      });
     },
     onEmotion: (e: Emotion) => avatar.setEmotion(e),
     onEnergy: (e) => setEnergy(e),
   });
 
+  // 说话结束（speaking → 其他状态）：把 live 消息定稿
+  useEffect(() => {
+    if (voice.status !== 'speaking' && liveIdRef.current) {
+      const id = liveIdRef.current;
+      liveIdRef.current = null;
+      commitVoice((prev) => prev.map((m) => (m.id === id ? { ...m, live: false } : m)));
+    }
+  }, [voice.status, commitVoice]);
+
+/** 合并后的对话消息（文字 + 语音统一形状，供渲染） */
+interface MergedMsg {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  ts: number;
+  voice?: boolean;
+  live?: boolean;
+  pending?: boolean;
+}
+
+// ---- 合并对话流：文字 + 语音，按时间排序；live 消息恒置顶末尾 ----
+const mergedMessages = useMemo<MergedMsg[]>(() => {
+  const live = voiceMessages.filter((m) => m.live);
+  const rest = [
+    ...chatMessages.map((m) => ({ id: m.id, role: m.role, text: m.text, ts: m.ts, pending: m.pending })),
+    ...voiceMessages
+      .filter((m) => !m.live)
+      .map((m) => ({ id: m.id, role: m.role, text: m.text, ts: m.ts, voice: m.voice })),
+  ].sort((a, b) => a.ts - b.ts);
+  return [...rest, ...live];
+}, [chatMessages, voiceMessages]);
+
+  // ---- 折叠/展开：默认收起只显示最近几条 ----
+  const [expanded, setExpanded] = useState(false);
+  const visibleMessages = expanded ? mergedMessages : mergedMessages.slice(-COLLAPSED_KEEP);
+  const totalCount = chatMessages.filter((m) => !m.pending).length + voiceMessages.filter((m) => !m.live).length;
+
+  // 新消息自动滚动到底部
+  const flowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = flowRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [visibleMessages.length]);
+
   // 发送文字消息
   const handleSendText = useCallback(() => {
     const text = inputValue.trim();
     if (!text || isLoading) return;
-    // 用户说的话也显示在字幕上沿（与语音一致）
-    userCaptionBuf.current.replace(text);
-    setUserCaption(userCaptionBuf.current.text);
     void sendMessage(text);
   }, [inputValue, isLoading, sendMessage]);
 
@@ -91,12 +190,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [voice]);
 
-  // 最近 3 条对话（参考图叙事引用排版）
-  const recentMessages = chatMessages.slice(-3);
-
   return (
-    <div className="app immersive-layout">
-      {/* ============ 顶部品牌栏 ============ */}
+    <div className="app fullscreen-layout">
+      {/* ============ 顶部品牌栏（半透明悬浮） ============ */}
       <header className="brand-bar">
         <div className="brand-mark-group">
           <div className="brand-mark">
@@ -119,11 +215,13 @@ export default function App() {
         </div>
       </header>
 
-      {/* ============ 主体分屏 ============ */}
-      <main className="immersive-main">
-        {/* ---- 左侧：对话内容 + 输入 ---- */}
-        <aside className="content-panel">
-          {/* 状态指示：语音活跃时高亮 */}
+      {/* ============ 全屏数字人舞台（视频铺满整页） ============ */}
+      <main className="avatar-stage" data-energy={Math.round(energy * 100)}>
+        <AvatarCanvas state={avatar.state} emotion={avatar.emotion} library={avatar.library} loop={false} />
+
+        {/* ============ 半透明聊天浮层（叠视频底部） ============ */}
+        <aside className={`chat-overlay ${expanded ? 'expanded' : ''}`}>
+          {/* 状态行 + 折叠按钮 */}
           <div className="state-line">
             <span className={`state-indicator ${voice.active ? 'on' : ''}`}></span>
             <span className="state-text">
@@ -133,22 +231,34 @@ export default function App() {
               {voice.status === 'connected' && voice.active && '已连接 · 随时可以说'}
               {voice.status === 'error' && '出了点小问题…'}
             </span>
+            <button
+              className={`collapse-btn ${expanded ? 'on' : ''}`}
+              onClick={() => setExpanded((e) => !e)}
+              title={expanded ? '收起对话' : '显示所有对话'}
+              aria-expanded={expanded}
+            >
+              {expanded ? '收起 ▴' : `全部对话 ${totalCount} ▾`}
+            </button>
           </div>
 
-          {/* 对话引用流：最近 3 条（参考图叙事排版） */}
-          <div className="quote-flow">
-            {recentMessages.length === 0 && (
+          {/* 合并对话流：文字 + 语音（可折叠） */}
+          <div className="quote-flow" ref={flowRef}>
+            {visibleMessages.length === 0 && (
               <div className="quote-empty">
                 <span className="quote-mark">—</span>
                 <p>没有对话记录。开始聊聊吧。</p>
               </div>
             )}
-            {recentMessages.map((m) => (
-              <div key={m.id} className={`quote ${m.role}`}>
+            {visibleMessages.map((m) => (
+              <div
+                key={m.id}
+                className={`quote ${m.role} ${m.voice ? 'voice' : ''} ${m.live ? 'live' : ''}`}
+              >
                 <span className="quote-mark">
-                  {m.role === 'user' ? '>' : '—'}
+                  {m.live ? <span className="live-dot" /> : m.role === 'user' ? '>' : '—'}
                 </span>
                 <p className="quote-text">{m.text || '…'}</p>
+                {m.voice && <span className="voice-tag">语音</span>}
               </div>
             ))}
           </div>
@@ -157,7 +267,7 @@ export default function App() {
           <div className="bottom-area">
             <div className="status-row">
               <span>最近对话</span>
-              <span className="status-count">{chatMessages.filter((m) => !m.pending).length} 条</span>
+              <span className="status-count">{totalCount} 条</span>
             </div>
 
             <div className="input-bar">
@@ -201,18 +311,6 @@ export default function App() {
             </div>
           </div>
         </aside>
-
-        {/* ---- 右侧：数字人画布 + 双字幕条 ---- */}
-        <section className="avatar-panel" data-energy={Math.round(energy * 100)}>
-          <AvatarCanvas
-            state={avatar.state}
-            emotion={avatar.emotion}
-            library={avatar.library}
-            loop={false}
-          />
-          <CaptionBar text={userCaption} tone="user" className="caption-top" />
-          <CaptionBar text={assistantCaption} tone="assistant" className="caption-bottom" />
-        </section>
       </main>
     </div>
   );

@@ -3,6 +3,31 @@
 > **按时间倒序记录开发进度、决策、阻塞。最新在最上面。**
 > 规则：每条记录写日期 + 做了什么 + 决策 + 阻塞/下一步。简洁不啰嗦。
 
+## 2026-08-21（前端全屏沉浸版 + 语音对话流合并 + 四条语音链路 bug 修复）
+
+**老板要求（00:38~03:21 连续迭代）**：整页播放数字人视频，聊天框半透明浮层嵌入；语音字幕与文字聊天合并；对话流可折叠展开。
+
+### 布局与基建（3 项）
+1. **全屏沉浸布局**：`client/src/App.tsx` 从"左 38% 对话 + 右 62% 画布"改为 `avatar-stage` 全屏视频（object-fit:cover）+ `chat-overlay` 半透明玻璃浮层（rgba(12,12,18,0.5)+blur 26px）+ 品牌栏半透明悬浮；`index.css` 新增全屏段落
+2. **一键启动**：根目录 `start-dev.bat` v2——后端已跑则跳过 + 启动前清 3000 残留 + 健康检查循环等就绪 + 自动开 Edge；`client/scripts/free-port.cjs` 参数化（默认 5173，可传端口）；vite `strictPort:true` 固定 5173
+3. **素材转码 H.264**：HY-Image 产出的 mp4 是 **MPEG-4 Visual (mp4v)**，Edge/Chrome 不支持（WorkBuddy 内置 Chromium 可放）→ 用 imageio-ffmpeg 二进制转 `libx264+crf23+yuv420p+aac+faststart`，6 个素材 2.7MB→0.75MB（-72%），原件备份 `_originals_mp4v/`；**以后新素材必须转码**（命令已记日志）
+
+### 语音链路 bug（4 条，老板截图逐步钉死）
+4. **视频 404 → 待机中**：vite `/avatars` 原代理后端 3000，后端没起 → 404；改 `publicDir: resolve('../assets')` 直服素材，dev 不依赖后端
+5. **点麦克风没反应**：后端 3000 没启动 → `/ws/voice` 代理失败；一键脚本 + 启动后端解决
+6. **看不到小呆回复文字**（StrictMode）：`<React.StrictMode>` 双调用 `setState` updater，旧代码在 updater 内创建 id/设 liveIdRef（副作用）→ live 消息被吞 + id 污染卡死 → 副文本永不显示；修复：id 创建移到 updater 外 + updater 内幂等
+7. **小呆回复只显示最后 1 字符**（截图钉死）：`response.audio_transcript.delta` 是**逐字增量片段**非完整句（直连 Qwen 实测 16 条 delta），误写 `text:t` 覆盖 → 改 `text: m.text + t` 追加累积
+8. **对话顺序错乱**（v1+v2）：Qwen 的 user transcript final 与 asst delta **到达顺序不确定**（race），`Date.now()` 作 ts 导致小呆偶尔排用户前——v1 用 seqRef+lastUserTs 锚点不够（final 晚于 delta）；v2 改用 **VAD speech_started 锚点**（本地检测，早于 Qwen 任何处理后事件 1-2s）：VAD true → 立即创建 user 占位（text 空）→ asst ts ≥ 占位+1 必排后 → transcript final 原地填充 → **老板 03:21 确认修复 ✅**
+
+### 语音/文字合并（1 项）
+9. **字幕并入对话流 + 折叠**：移除双 CaptionBar；onSubtitle → live assistant 消息（● 呼吸点）；onUserTranscript → user 消息；按 ts 排序 + live 置末尾；折叠按钮"全部对话 N ▾/收起 ▴"（默认最近 3 条，展开 78vh 可滚动）；合并流 ts 用 seqRef+lastUserTs+VAD 锚点
+
+**验证**：每步 tsc 零错误 + vite build 通过 + HMR 生效；Qwen 直连验证 audio_transcript.delta 事件存在；老板实测确认语音副文本完整显示 + 对话顺序正确
+
+**下一步**：无阻塞；素材后续新增需转码；start-dev.bat 待老板双击实测确认
+
+---
+
 ## 2026-08-17（Git 仓库恢复 + 沉浸式分屏重构提交推送）
 
 - **事件**：执行"更新 GIT"时发现本地无 `.git`；排查回收站（`$RECYCLE.BIN` `$I` 元数据）确认 8/13 老板主动清理过本地 git（删除 `.git` + 28.9MB 大对象），**无误删**——项目根 `.git_backup_20260813/` 备份完整（fsck 零错误，HEAD=6585466 与远端 main 一致）

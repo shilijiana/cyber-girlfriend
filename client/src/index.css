@@ -543,6 +543,262 @@ body {
 }
 
 /* =============================================================================
+ * 全屏沉浸布局（2026-08-21 老板指示：整页播放数字人视频 + 半透明聊天浮层）
+ * 覆写原分屏布局：avatar-stage 铺满全屏，chat-overlay 玻璃拟态浮层叠视频上
+ * ========================================================================== */
+.app.fullscreen-layout {
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* ---- 顶部品牌栏：半透明悬浮（不占布局流） ---- */
+.fullscreen-layout .brand-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  border-bottom: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* ---- 全屏数字人舞台（视频铺满整页） ---- */
+.avatar-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #000;
+  overflow: hidden;
+}
+
+.avatar-stage .avatar-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* 视频铺满全屏：16:9 素材 cover 裁切，人物主体居中 */
+.avatar-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ---- 占位兜底：居中展示 ---- */
+.avatar-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.avatar-fallback-label {
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ---- 状态徽标：右下角小胶囊 ---- */
+.avatar-state-badge {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ---- 用户字幕：叠视频顶部（避开品牌栏） ---- */
+.avatar-stage .caption-top {
+  top: 96px;
+  z-index: 20;
+}
+
+/* ============ 半透明聊天浮层（玻璃拟态，叠视频底部） ============ */
+.chat-overlay {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(680px, calc(100% - 48px));
+  max-height: 54vh;
+  padding: 18px 22px 16px;
+  /* 半透明 + 毛玻璃：背景虚化后视频依然透出来 */
+  background: rgba(12, 12, 18, 0.5);
+  backdrop-filter: blur(26px) saturate(1.25);
+  -webkit-backdrop-filter: blur(26px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: overlay-in 0.5s ease-out;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ---- 浮层内小呆字幕条：改为静态布局（覆盖全局 .caption-bar 绝对定位） ---- */
+.chat-overlay .caption-bar {
+  position: static;
+  transform: none;
+  left: auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 16px 10px 22px;
+  font-size: 15px;
+  line-height: 1.55;
+  background: rgba(8, 8, 10, 0.35);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+
+.chat-overlay .caption-bottom::before {
+  left: 16px;
+  top: -9px;
+}
+
+/* ---- 浮层内其余元素间距收敛 ---- */
+.chat-overlay .state-line {
+  margin-bottom: 0;
+}
+
+/* ---- 折叠按钮（状态行右侧） ---- */
+.collapse-btn {
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-soft);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  font-family: inherit;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.collapse-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+.collapse-btn.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-line);
+}
+
+/* ---- 语音消息（麦克风小标 + 轻声调） ---- */
+.quote.voice .quote-text {
+  color: var(--text);
+  opacity: 0.92;
+}
+
+.voice-tag {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 6px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-mute);
+  user-select: none;
+}
+
+/* ---- live 语音消息：正在说的呼吸指示 ---- */
+.quote.live .quote-text {
+  color: var(--accent);
+}
+
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: brand-pulse 1.2s ease-in-out infinite;
+  vertical-align: 2px;
+}
+
+/* ---- 展开态：浮层加高，看更多历史 ---- */
+.chat-overlay.expanded {
+  max-height: 78vh;
+}
+
+.chat-overlay .quote-flow {
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 0;
+  gap: 14px;
+  padding-right: 6px;
+}
+
+.chat-overlay .quote-text {
+  font-size: 14px;
+}
+
+.chat-overlay .bottom-area {
+  gap: 10px;
+}
+
+/* ---- 全屏布局响应式 ---- */
+@media (max-width: 900px) {
+  .chat-overlay {
+    width: calc(100% - 24px);
+    bottom: 14px;
+    max-height: 62vh;
+    padding: 14px 16px 12px;
+    border-radius: 20px;
+  }
+
+  .avatar-stage .caption-top {
+    top: 80px;
+  }
+}
+
+/* =============================================================================
  * 响应式：小屏幕自动切换上下堆叠
  * ========================================================================== */
 @media (max-width: 900px) {

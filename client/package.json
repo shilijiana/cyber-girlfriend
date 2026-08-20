@@ -5,7 +5,7 @@
   "type": "module",
   "description": "赛博女友前端（React 单页）：AvatarCanvas 数字人画布 / 聊天 UI / 字幕 / 波形",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/free-port.cjs && vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "test:avatar": "node --experimental-strip-types src/components/avatar-canvas-test.ts",
