@@ -5,7 +5,7 @@
  * 断言：各情绪关键词命中 + 平局优先级 + 无命中 neutral + 空文本 neutral。
  */
 
-import { guessEmotion } from './emotion-guess.ts';
+import { guessEmotion, isEmotionCommand } from './emotion-guess.ts';
 import type { Emotion } from '../../../avatar/clip-matcher.ts';
 
 let pass = 0;
@@ -43,6 +43,27 @@ check('平局 surprise后置', '哇，虽然好难过', 'serious'); // surprise 
 check('无情绪词', '请帮我查一下明天的天气', 'neutral');
 check('空文本', '', 'neutral');
 check('纯符号', '???', 'neutral');
+
+// ---------- isEmotionCommand（2026-08-21：情绪指令本地切换，不发 /api/chat） ----------
+console.log('\nisEmotionCommand 指令识别：');
+function checkCmd(name: string, text: string, expected: boolean): void {
+  const got = isEmotionCommand(text);
+  if (got === expected) {
+    pass += 1;
+    console.log(`  ✓ ${name} → ${got}`);
+  } else {
+    fail += 1;
+    console.error(`  ✗ ${name} → ${got}（期望 ${expected}）: "${text}"`);
+  }
+}
+checkCmd('切到开心', '切到开心', true);
+checkCmd('来点悲伤的', '来点悲伤的', true);
+checkCmd('换严肃', '换严肃', true);
+checkCmd('开心', '开心', true);
+checkCmd('温柔一点', '温柔一点', true);
+checkCmd('正常聊天不长', '今天好开心啊我们去吃饭', false);
+checkCmd('查询不误判', '帮我查一下天气', false);
+checkCmd('空指令', '', false);
 
 console.log(`\n结果：${pass} 通过 / ${fail} 失败`);
 if (fail > 0) {

@@ -43,6 +43,27 @@ const EMOTION_KEYWORDS: Record<Exclude<Emotion, 'neutral'>, readonly string[]> =
 /** 平局优先级（索引越小越优先） */
 const PRIORITY: readonly Exclude<Emotion, 'neutral'>[] = ['happy', 'gentle', 'serious', 'surprise'];
 
+/** 情绪切换指令模式：以"切/换/变/调/来/要/给"等开头，后跟情绪词（中间可夹 0-6 字） */
+const COMMAND_RE =
+  /^(切|换|切换|变成|变|调|来|要|给|给我)(到|成|为|个|一下|点|个)?[\s\S]{0,6}(开心|快乐|高兴|哈哈|难过|悲伤|伤心|严肃|认真|温柔|温暖|惊讶|惊喜|正常|neutral|happy|sad|serious|gentle|surprise)/i;
+
+/**
+ * 判断是否为"纯情绪切换指令"（2026-08-21 老板需求）：
+ * 命中时调用方应**本地切换情绪、不发 /api/chat 请求**——
+ * 避免情绪指令也走 Hermes（8-9s）导致等待期间输入/发送被锁。
+ * 规则：① 匹配 COMMAND_RE（"切到开心"/"来点悲伤的"/"换严肃"…）；或
+ *       ② 全文 ≤ 8 字且命中非 neutral 情绪词（"开心"/"悲伤"…）。
+ * 正常聊天（"今天好开心啊我们去吃饭"）不会被误判（有"去吃饭"等后续，长度超限且无指令前缀）。
+ */
+export function isEmotionCommand(text: string): boolean {
+  const t = text?.trim() ?? '';
+  if (!t) return false;
+  if (COMMAND_RE.test(t)) return true;
+  // 全文短 + 命中情绪 → 视为指令（如"开心""悲伤""温柔一点"）
+  if (t.length <= 8 && guessEmotion(t) !== 'neutral') return true;
+  return false;
+}
+
 /**
  * 猜测文本情绪：关键词打分 → 最高分（平局按优先级）→ 无命中 neutral。
  * 单字词（哇/咦/哭/累/暖/棒/笑/疼）阈值放宽：需与其他词共现或至少命中 2 次不同词？

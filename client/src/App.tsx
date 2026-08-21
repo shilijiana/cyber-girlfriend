@@ -22,7 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AvatarCanvas from './components/AvatarCanvas.tsx';
 import { createMessageId } from './components/chat-core.ts';
-import { guessEmotion } from './components/emotion-guess.ts';
+import { guessEmotion, isEmotionCommand } from './components/emotion-guess.ts';
 import useAvatar from './hooks/use-avatar.ts';
 import useVoice from './hooks/useVoice.ts';
 import { useChat } from './hooks/use-chat.ts';
@@ -178,7 +178,16 @@ const mergedMessages = useMemo<MergedMsg[]>(() => {
   // 发送文字消息
   const handleSendText = useCallback(() => {
     const text = inputValue.trim();
-    if (!text || isLoading) return;
+    if (!text) return;
+    // 纯情绪切换指令（"切到开心"/"来点悲伤的"…）：本地切换，不受 isLoading 限制——
+    // 不发 /api/chat（否则走 Hermes 8-9s 等待期输入/发送被锁），Hermes 处理中也随时可切
+    if (isEmotionCommand(text)) {
+      avatar.setEmotion(guessEmotion(text));
+      setInputValue('');
+      return;
+    }
+    // 正常聊天：等待回复中不重复发送
+    if (isLoading) return;
     // 打字即驱动情绪（用户输入里带情绪词 → 数字人先切对应视频，等回复到达再微调）
     avatar.setEmotion(guessEmotion(text));
     void sendMessage(text);
