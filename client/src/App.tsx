@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AvatarCanvas from './components/AvatarCanvas.tsx';
 import { createMessageId } from './components/chat-core.ts';
+import { guessEmotion } from './components/emotion-guess.ts';
 import useAvatar from './hooks/use-avatar.ts';
 import useVoice from './hooks/useVoice.ts';
 import { useChat } from './hooks/use-chat.ts';
@@ -49,7 +50,13 @@ export default function App() {
   const [energy, setEnergy] = useState(0);
 
   // ---- 文本聊天（useChat：消息流 + /api/chat 发送）----
-  const { messages: chatMessages, isLoading, inputValue, setInputValue, sendMessage } = useChat();
+  // 2026-08-21：打字链路也驱动数字人情绪——发送时猜用户输入情绪，收到回复时猜回复情绪
+  // （/api/chat 不推 emotion 事件，前端本地兜底；语音链路的 emotion 事件优先级更高，后到者覆盖）
+  const { messages: chatMessages, isLoading, inputValue, setInputValue, sendMessage } = useChat({
+    onReply: (r) => {
+      if (r.ok) avatar.setEmotion(guessEmotion(r.reply));
+    },
+  });
 
   // ---- 语音会话（WS /ws/voice）→ 语音消息并入对话流 ----
   // 关键：Qwen Realtime 的 user transcript final 与 assistant audio_transcript delta 到达顺序
@@ -172,8 +179,10 @@ const mergedMessages = useMemo<MergedMsg[]>(() => {
   const handleSendText = useCallback(() => {
     const text = inputValue.trim();
     if (!text || isLoading) return;
+    // 打字即驱动情绪（用户输入里带情绪词 → 数字人先切对应视频，等回复到达再微调）
+    avatar.setEmotion(guessEmotion(text));
     void sendMessage(text);
-  }, [inputValue, isLoading, sendMessage]);
+  }, [inputValue, isLoading, sendMessage, avatar]);
 
   // 开始/结束语音
   const handleToggleVoice = useCallback(() => {
