@@ -43,16 +43,20 @@ check(
   [...emotions].join(','),
 );
 
-// ---------- 2. 状态切换 ----------
+// ---------- 2. 状态切换（2026-08-21：任何状态都按情绪选片） ----------
 console.log('\n[2] 状态切换');
 {
   const matcher = createAvatarMatcher(library);
   const speaking = pickClipForState(matcher, 'speaking', 'happy');
   check('speaking+happy → happy 片段', speaking?.emotion === 'happy', speaking?.emotion);
   const idle = pickClipForState(matcher, 'idle', 'happy');
-  check('idle → neutral 兜底（FALLBACK_ORDER 首位）', idle?.emotion === 'neutral', idle?.emotion);
+  check('idle+happy → happy 片段（情绪即时生效，不落 neutral 兜底）', idle?.emotion === 'happy', idle?.emotion);
   const listening = pickClipForState(matcher, 'listening', 'happy');
-  check('listening → neutral 兜底（不崩）', listening !== null, String(listening?.emotion));
+  check('listening+happy → happy 片段（聆听时也按情绪选片）', listening?.emotion === 'happy', listening?.emotion);
+  // 该情绪无素材 → 兜底（构造只有 neutral 的库验证）
+  const neutralOnly = createAvatarMatcher({ clips: library.clips.filter((c) => c.emotion === 'neutral') });
+  const fallback = pickClipForState(neutralOnly, 'idle', 'happy');
+  check('happy 无素材 → neutral 兜底', fallback?.emotion === 'neutral', fallback?.emotion);
 }
 
 // ---------- 3. 情绪换片 ----------

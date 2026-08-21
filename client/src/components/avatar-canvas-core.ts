@@ -48,8 +48,11 @@ export function createAvatarMatcher(library: ClipLibrary): EmotionMatcher {
 
 /**
  * 状态/情绪 → 选片（纯函数，可测）：
- * - speaking：按当前情绪选片（happy/gentle/serious/surprise/neutral）
- * - idle / listening：无专属素材分类，按 FALLBACK_ORDER 兜底（neutral 优先）
+ * 2026-08-21 老板需求：**任何状态（idle/listening/speaking）都优先按当前情绪选片**——
+ * 打字/语音驱动的情绪切换在空闲或聆听时也立即生效（原 idle/listening 走 FALLBACK_ORDER
+ * neutral 兜底，导致打字"切到开心"视频不切换）。
+ * - 当前情绪有素材 → 直接选该情绪片段
+ * - 该情绪无素材 → 按 FALLBACK_ORDER 兜底（neutral 优先）
  * - 无匹配 → null（调用方降级占位）
  */
 export function pickClipForState(
@@ -57,12 +60,13 @@ export function pickClipForState(
   state: AvatarState,
   emotion: Emotion,
 ): Clip | null {
-  if (state === 'speaking') {
-    return matcher.pick(emotion);
-  }
+  // 任何状态都先按当前情绪选片（情绪驱动的切换即时生效）
+  const clip = matcher.pick(emotion);
+  if (clip) return clip;
+  // 该情绪无素材 → 按兜底顺序尝试（neutral 优先）
   for (const e of FALLBACK_ORDER) {
-    const clip = matcher.pick(e);
-    if (clip) return clip;
+    const c = matcher.pick(e);
+    if (c) return c;
   }
   return null;
 }
