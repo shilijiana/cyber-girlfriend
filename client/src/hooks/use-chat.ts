@@ -100,31 +100,35 @@ export function useChat(options: UseChatOptions = {}): UseChatResult {
     setError(null);
     setInputValue('');
 
-    // ① 追加 user 消息 + assistant pending 占位（同步拿 pendingId，防竞态）
-    const withUser = addUserMessage(messagesRef.current, content);
-    const withPending = addPending(withUser);
-    const pendingId = withPending[withPending.length - 1]?.id ?? '';
-    commitMessages(() => withPending);
+    try {
+      // ① 追加 user 消息 + assistant pending 占位（同步拿 pendingId，防竞态）
+      const withUser = addUserMessage(messagesRef.current, content);
+      const withPending = addPending(withUser);
+      const pendingId = withPending[withPending.length - 1]?.id ?? '';
+      commitMessages(() => withPending);
 
-    // ② 发送（sendChatMessage 内部兜底所有失败：网络/HTTP/结构异常 → ok:false + 友好文案）
-    const result = await sendChatMessage({
-      text: content,
-      personaId: optsRef.current.personaId,
-      apiUrl: optsRef.current.url ?? '/api/chat',
-      signal: controller.signal, // L21：传 AbortSignal（卸载/新发送时取消）
-    });
+      // ② 发送（sendChatMessage 内部兜底所有失败：网络/HTTP/结构异常 → ok:false + 友好文案）
+      const result = await sendChatMessage({
+        text: content,
+        personaId: optsRef.current.personaId,
+        apiUrl: optsRef.current.url ?? '/api/chat',
+        signal: controller.signal, // L21：传 AbortSignal（卸载/新发送时取消）
+      });
 
-    // ③ 填充 pending：ok=true → 正常回复；ok=false → 错误文案（error 样式）
-    commitMessages((prev) => resolvePending(prev, pendingId, result));
-    optsRef.current.onReply?.({ ok: result.ok, reply: result.reply });
-    if (!result.ok) {
-      const reason = result.reply || '发送失败';
-      setError(reason);
-      optsRef.current.onError?.(reason);
+      // ③ 填充 pending：ok=true → 正常回复；ok=false → 错误文案（error 样式）
+      commitMessages((prev) => resolvePending(prev, pendingId, result));
+      optsRef.current.onReply?.({ ok: result.ok, reply: result.reply });
+      if (!result.ok) {
+        const reason = result.reply || '发送失败';
+        setError(reason);
+        optsRef.current.onError?.(reason);
+      }
+    } finally {
+      // 2026-08-21 防御：无论正常/异常（含 onReply 抛错）都恢复 busy/isLoading，
+      // 否则输入框 disabled={isLoading} 永久锁死（老板反馈"切换情绪后不能打字"）
+      busyRef.current = false;
+      setIsLoading(false);
     }
-
-    busyRef.current = false;
-    setIsLoading(false);
   }, [inputValue, commitMessages]);
 
   const clear = useCallback(() => {

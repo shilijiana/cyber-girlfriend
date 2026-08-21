@@ -282,7 +282,7 @@ const mergedMessages = useMemo<MergedMsg[]>(() => {
             <div className="input-bar">
               <input
                 className="text-input"
-                placeholder={voice.active ? '边听边打字…' : '打字告诉小呆…'}
+                placeholder={isLoading ? '小呆正在思考，可以先打字…' : voice.active ? '边听边打字…' : '打字告诉小呆…'}
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => {
@@ -291,7 +291,6 @@ const mergedMessages = useMemo<MergedMsg[]>(() => {
                     handleSendText();
                   }
                 }}
-                disabled={isLoading}
               />
               <button
                 className={`mic-btn ${voice.active ? 'on' : ''}`}
